@@ -101,16 +101,17 @@ def main_app():
 
     # ---------- CLEANING ----------
     def clean_data(df):
-      df = df.dropna()
-      df = df.drop_duplicates() 
-      return df
+        df = df.dropna()
+        df = df.drop_duplicates() 
+        return df
 
+    if df is not None:
+        df = clean_data(df)
+        for col in df.select_dtypes(include="number").columns:
+            df[col] = df[col].fillna(df[col].mean())
 
-    for col in df.select_dtypes(include="number").columns:
-        df[col] = df[col].fillna(df[col].mean())
-
-    for col in df.select_dtypes(include="object").columns:
-        df[col] = df[col].fillna("Unknown")
+        for col in df.select_dtypes(include="object").columns:
+            df[col] = df[col].fillna("Unknown")
 
         # ---------- KPI CARDS ----------
         if "Sales" in df.columns:
