@@ -83,10 +83,10 @@ def main_app():
     """, unsafe_allow_html=True)
 
     with col_right:
-    if st.button("Logout"):
-        st.session_state.logged_in = False
-        st.session_state.page = "login"
-        st.rerun()
+      if st.button("Logout"):
+         st.session_state.logged_in = False
+         st.session_state.page = "login"
+         st.rerun()
 
     # ---------- SIDEBAR ----------
     st.sidebar.title("⚙️ Controls")
