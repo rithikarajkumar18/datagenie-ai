@@ -100,7 +100,11 @@ def main_app():
            df = pd.read_excel(uploaded_file)
 
         # ---------- CLEANING ----------
-        df = df.drop_duplicates()
+        def clean_data(df):
+            df = df.dropna()
+            df = df.drop_duplicates() 
+            return df
+
 
         for col in df.select_dtypes(include="number").columns:
             df[col] = df[col].fillna(df[col].mean())
