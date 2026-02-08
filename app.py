@@ -276,7 +276,8 @@ Focus marketing and inventory in the {top_region} region to increase revenue.
 
     else:
         st.info("⬅️ Upload an Excel file from the sidebar to begin.")
-
+        if st.button("Go to Upload Sidebar"):
+            st.sidebar.warning("Please upload your Excel/CSV file here 👆")
 
 # ---------- ROUTER ----------
 if not st.session_state.logged_in:
