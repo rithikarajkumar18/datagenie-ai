@@ -102,8 +102,8 @@ Focus marketing and inventory in the {top_region} region to increase revenue.
                 for line in text.split("\n"):
                     elements.append(Paragraph(line, styles["Normal"]))
                     elements.append(Spacer(1, 12))
-         # ---------- TAB 4: SMART CHATBOT ----------
-         with tab4:
+    # ---------- TAB 4: SMART CHATBOT ----------
+      with tab4:
          st.subheader("💬 Smart Data Chatbot")
 
          question = st.text_input("Ask anything about your data...")
