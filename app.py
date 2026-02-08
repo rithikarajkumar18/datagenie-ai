@@ -106,7 +106,7 @@ Focus marketing and inventory in the {top_region} region to increase revenue.
     with tab4:
         st.subheader("💬 Smart Data Chatbot")
 
-          question = st.text_input("Ask anything about your data...")
+        question = st.text_input("Ask anything about your data...")
 
         if question and "Sales" in df.columns:
           q = question.lower()
