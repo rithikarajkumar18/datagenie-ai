@@ -8,10 +8,14 @@ import numpy as np
 
 st.set_page_config(page_title="DataGenie AI", layout="wide")
 
-st.title("🤖 DataGenie – AI Powered Decision Support System")
+# ---------- HEADER ----------
+st.markdown("""
+    <h1 style='text-align: center;'>🤖 DataGenie</h1>
+    <p style='text-align: center; color: gray;'>AI‑Powered Decision Support Dashboard</p>
+""", unsafe_allow_html=True)
 
 # ---------- SIDEBAR ----------
-st.sidebar.header("⚙️ Controls")
+st.sidebar.title("⚙️ Controls")
 uploaded_file = st.sidebar.file_uploader("Upload Excel Dataset", type=["xlsx"])
 
 ai_text = ""
@@ -30,15 +34,28 @@ if uploaded_file is not None:
     for col in df.select_dtypes(include="object").columns:
         df[col] = df[col].fillna("Unknown")
 
-    # Tabs
-    tab1, tab2, tab3, tab4 = st.tabs(
-        ["📄 Data", "📊 Dashboard", "🤖 AI Insights", "💬 Chatbot"]
-    )
+    # ---------- KPI CARDS ----------
+    if "Sales" in df.columns:
+        total_sales = df["Sales"].sum()
+        avg_sales = df["Sales"].mean()
+        max_sales = df["Sales"].max()
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Sales", f"{total_sales:,.0f}")
+        col2.metric("Average Sales", f"{avg_sales:,.0f}")
+        col3.metric("Highest Sale", f"{max_sales:,.0f}")
+
+    st.divider()
+
+    # ---------- TABS ----------
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📄 Data", "📊 Dashboard", "🤖 AI Insights", "💬 Chatbot"
+    ])
 
     # ---------- TAB 1: DATA ----------
     with tab1:
-        st.subheader("Raw Data")
-        st.dataframe(df)
+        st.subheader("Dataset Preview")
+        st.dataframe(df, use_container_width=True)
 
     # ---------- TAB 2: DASHBOARD ----------
     with tab2:
@@ -55,7 +72,7 @@ if uploaded_file is not None:
 
     # ---------- TAB 3: AI INSIGHTS ----------
     with tab3:
-        st.subheader("AI Generated Insights (Demo Mode)")
+        st.subheader("AI Generated Insights")
 
         if "Sales" in df.columns:
             total_sales = df["Sales"].sum()
@@ -78,10 +95,11 @@ Top Performing Region: {top_region}
 Insight:
 Focus marketing and inventory in the {top_region} region to increase revenue.
 """
-            st.write(ai_text)
+
+            st.info(ai_text)
 
             # -------- ML SALES PREDICTION --------
-            st.subheader("📈 Sales Prediction")
+            st.subheader("📈 Next Sale Prediction")
 
             X = np.arange(len(df)).reshape(-1, 1)
             y = df["Sales"].values
@@ -90,7 +108,7 @@ Focus marketing and inventory in the {top_region} region to increase revenue.
             model.fit(X, y)
 
             next_sales = model.predict([[len(df)]])[0]
-            st.success(f"🔮 Predicted next sale value: {next_sales:,.2f}")
+            st.success(f"Predicted next sale value: {next_sales:,.2f}")
 
             # -------- PDF --------
             def create_pdf(text):
@@ -102,52 +120,46 @@ Focus marketing and inventory in the {top_region} region to increase revenue.
                 for line in text.split("\n"):
                     elements.append(Paragraph(line, styles["Normal"]))
                     elements.append(Spacer(1, 12))
-    # ---------- TAB 4: SMART CHATBOT ----------
+
+                doc.build(elements)
+                return file_path
+
+            if st.button("📄 Download AI Report"):
+                pdf_path = create_pdf(ai_text)
+                with open(pdf_path, "rb") as f:
+                    st.download_button("⬇️ Download PDF", f, "DataGenie_Report.pdf")
+
+    # ---------- TAB 4: CHATBOT ----------
     with tab4:
-          st.subheader("💬 Smart Data Chatbot")
+        st.subheader("💬 Smart Data Chatbot")
 
-          question = st.text_input("Ask anything about your data...")
+        question = st.text_input("Ask anything about your data...")
 
-    if question:
-        q = question.lower()
-
-        if "Sales" in df.columns:
+        if question and "Sales" in df.columns:
+            q = question.lower()
 
             if "total" in q and "sales" in q:
-                total = df["Sales"].sum()
-                st.success(f"Total sales is {total:,.2f}.")
+                st.success(f"Total sales is {df['Sales'].sum():,.2f}.")
 
             elif "average" in q:
-                avg = df["Sales"].mean()
-                st.success(f"Average sales per order is {avg:,.2f}.")
+                st.success(f"Average sales per order is {df['Sales'].mean():,.2f}.")
 
-            elif "highest" in q and "region" in q:
+            elif "highest" in q and "region" in q and "Region" in df.columns:
                 region = df.groupby("Region")["Sales"].sum().idxmax()
-                st.success(f"The highest performing region is {region}.")
-
-            elif "lowest" in q and "region" in q:
-                region = df.groupby("Region")["Sales"].sum().idxmin()
-                st.success(f"The lowest performing region is {region}.")
-
-            elif "top" in q and "category" in q:
-                cat = df.groupby("Category")["Sales"].sum().idxmax()
-                st.success(f"The top selling category is {cat}.")
+                st.success(f"Highest performing region is {region}.")
 
             elif "predict" in q or "next" in q:
-                from sklearn.linear_model import LinearRegression
-                import numpy as np
-
                 X = np.arange(len(df)).reshape(-1, 1)
                 y = df["Sales"].values
 
                 model = LinearRegression()
                 model.fit(X, y)
-
                 next_sales = model.predict([[len(df)]])[0]
+
                 st.success(f"Predicted next sales value is {next_sales:,.2f}.")
 
             else:
-                st.info("Ask about total, average, region, category, or prediction.")
+                st.info("Try asking about total, average, region performance, or prediction.")
 
-        else:
-            st.error("Sales column not found in dataset.")
+            else:
+                st.info("⬅️ Upload an Excel file from the sidebar to begin.")
