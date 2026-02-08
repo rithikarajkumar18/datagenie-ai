@@ -87,14 +87,17 @@ def main_app():
 
     # ---------- SIDEBAR ----------
     st.sidebar.title("⚙️ Controls")
-    uploaded_file = st.sidebar.file_uploader("Upload Excel Dataset", type=["xlsx"])
+    uploaded_file = st.sidebar.file_uploader("Upload Dataset", type=["xlsx", "csv"])
 
     ai_text = ""
     df = None
 
     # ---------- AFTER UPLOAD ----------
     if uploaded_file is not None:
-        df = pd.read_excel(uploaded_file)
+       if uploaded_file.name.endswith(".csv"):
+           df = pd.read_csv(uploaded_file)
+       else:
+           df = pd.read_excel(uploaded_file)
 
         # ---------- CLEANING ----------
         df = df.drop_duplicates()
