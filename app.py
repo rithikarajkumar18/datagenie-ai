@@ -55,13 +55,36 @@ if uploaded_file:
         {summary}
         """
 
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}]
-        )
+        st.subheader("🤖 AI Generated Insights (Demo Mode)")
 
-        ai_text = response.choices[0].message.content
-        st.write(ai_text)
+ai_text = ""
+
+if "Sales" in df.columns:
+    total_sales = df["Sales"].sum()
+    avg_sales = df["Sales"].mean()
+    max_sales = df["Sales"].max()
+
+    top_region = "N/A"
+    if "Region" in df.columns:
+        top_region = df.groupby("Region")["Sales"].sum().idxmax()
+
+    ai_text = f"""
+    • Total Sales: {total_sales:,.2f}
+
+    • Average Sales per Order: {avg_sales:,.2f}
+
+    • Highest Single Sale: {max_sales:,.2f}
+
+    • Top Performing Region: {top_region}
+
+    📊 Insight:
+    Sales performance is strong in the {top_region} region.
+    Focus on increasing marketing and inventory in this region
+    to maximize revenue. Monitor low-sales regions for improvement.
+    """
+
+    st.write(ai_text)
+
 
     # -------- PDF DOWNLOAD --------
     def create_pdf(text):
