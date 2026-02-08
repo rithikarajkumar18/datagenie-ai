@@ -113,22 +113,57 @@ if uploaded_file is not None:
             with open(pdf_path, "rb") as f:
                 st.download_button("⬇️ Download PDF", f, "DataGenie_Report.pdf")
 
-    # ---------- TAB 4: CHATBOT ----------
+   # ---------- TAB 4: SMART CHATBOT ----------
     with tab4:
-        st.subheader("Ask Questions About Your Data")
+    st.subheader("💬 Smart Data Chatbot")
 
-        question = st.text_input("Type your question here...")
+    question = st.text_input("Ask anything about your data...")
 
-        if question and "Sales" in df.columns:
-            if "highest" in question.lower() and "region" in question.lower():
-                answer = df.groupby("Region")["Sales"].sum().idxmax()
-                st.success(f"Highest sales region is: {answer}")
+    if question and "Sales" in df.columns:
 
-            elif "total sales" in question.lower():
-                st.success(f"Total sales is: {df['Sales'].sum():,.2f}")
+        q = question.lower()
 
-            elif "average sales" in question.lower():
-                st.success(f"Average sales is: {df['Sales'].mean():,.2f}")
+        # Total sales
+        if "total" in q and "sales" in q:
+            total = df["Sales"].sum()
+            st.success(f"Total sales is {total:,.2f}.")
 
-            else:
-                st.info("Demo chatbot: Try asking about total, average, or highest sales region.")
+        # Average sales
+        elif "average" in q:
+            avg = df["Sales"].mean()
+            st.success(f"Average sales per order is {avg:,.2f}.")
+
+        # Highest region
+        elif "highest" in q and "region" in q:
+            region = df.groupby("Region")["Sales"].sum().idxmax()
+            st.success(f"The highest performing region is {region}.")
+
+        # Lowest region
+        elif "lowest" in q and "region" in q:
+            region = df.groupby("Region")["Sales"].sum().idxmin()
+            st.success(f"The lowest performing region is {region}.")
+
+        # Top category
+        elif "top" in q and "category" in q:
+            cat = df.groupby("Category")["Sales"].sum().idxmax()
+            st.success(f"The top selling category is {cat}.")
+
+        # Prediction question
+        elif "predict" in q or "next" in q:
+            from sklearn.linear_model import LinearRegression
+            import numpy as np
+
+            X = np.arange(len(df)).reshape(-1, 1)
+            y = df["Sales"].values
+
+            model = LinearRegression()
+            model.fit(X, y)
+
+            next_sales = model.predict([[len(df)]])[0]
+            st.success(f"Predicted next sales value is {next_sales:,.2f}.")
+
+        else:
+            st.info(
+                "I can answer about total sales, average sales, highest/lowest region, top category, or future prediction."
+            )
+
