@@ -115,10 +115,6 @@ def main_app():
 
         for col in df.select_dtypes(include="object").columns:
             df[col] = df[col].fillna("Unknown")
-    else:
-    # ---------- CLICKABLE UPLOAD MESSAGE ----------
-    if st.button("⬅️ Upload an Excel file from the sidebar to begin"):
-        st.sidebar.info("📂 Please upload your Excel/CSV file here 👆")
 
         # ---------- KPI CARDS ----------
         if "Sales" in df.columns:
@@ -280,8 +276,8 @@ Focus marketing and inventory in the {top_region} region to increase revenue.
 
     else:
         st.info("⬅️ Upload an Excel file from the sidebar to begin.")
-        if st.button("Go to Upload Sidebar"):
-            st.sidebar.warning("Please upload your Excel/CSV file here 👆")
+      if st.button("Go to Upload Sidebar"):
+         st.sidebar.warning("Please upload your Excel/CSV file here 👆")
 
 # ---------- ROUTER ----------
 if not st.session_state.logged_in:
