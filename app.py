@@ -115,6 +115,10 @@ def main_app():
 
         for col in df.select_dtypes(include="object").columns:
             df[col] = df[col].fillna("Unknown")
+    else:
+    # ---------- CLICKABLE UPLOAD MESSAGE ----------
+    if st.button("⬅️ Upload an Excel file from the sidebar to begin"):
+        st.sidebar.info("📂 Please upload your Excel/CSV file here 👆")
 
         # ---------- KPI CARDS ----------
         if "Sales" in df.columns:
