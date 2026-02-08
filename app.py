@@ -161,5 +161,5 @@ Focus marketing and inventory in the {top_region} region to increase revenue.
             else:
                 st.info("Try asking about total, average, region performance, or prediction.")
 
-            else:
-                st.info("⬅️ Upload an Excel file from the sidebar to begin.")
+        else:
+            st.info("⬅️ Upload an Excel file from the sidebar to begin.")
