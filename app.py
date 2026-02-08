@@ -106,11 +106,11 @@ def main_app():
       return df
 
 
-        for col in df.select_dtypes(include="number").columns:
-            df[col] = df[col].fillna(df[col].mean())
+    for col in df.select_dtypes(include="number").columns:
+        df[col] = df[col].fillna(df[col].mean())
 
-        for col in df.select_dtypes(include="object").columns:
-            df[col] = df[col].fillna("Unknown")
+    for col in df.select_dtypes(include="object").columns:
+        df[col] = df[col].fillna("Unknown")
 
         # ---------- KPI CARDS ----------
         if "Sales" in df.columns:
