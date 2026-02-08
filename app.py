@@ -99,11 +99,11 @@ def main_app():
        else:
            df = pd.read_excel(uploaded_file)
 
-        # ---------- CLEANING ----------
-        def clean_data(df):
-            df = df.dropna()
-            df = df.drop_duplicates() 
-            return df
+    # ---------- CLEANING ----------
+    def clean_data(df):
+      df = df.dropna()
+      df = df.drop_duplicates() 
+      return df
 
 
         for col in df.select_dtypes(include="number").columns:
