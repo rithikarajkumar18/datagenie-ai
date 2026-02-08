@@ -10,7 +10,7 @@ st.set_page_config(page_title="DataGenie AI", layout="wide")
 st.title("🤖 DataGenie – AI Powered Decision Support System")
 
 # OpenAI client
-client = OpenAI(api_key=st.proj-UaM-AoQ8HZnYT-fHsRe9tJQrXLG53F6UjGIHqWY60QdE3ECJ3yUeX71THO56NHH1rJlu9kTWJOT3BlbkFJhEZ0jSuICGonvR4aBXmuVaXkzaAYUqTcm81AAVQN0nd2Gq-ieEoZ1ONXfo7EoMVLxno_TOBzwA["OPENAI_API_KEY"])
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 uploaded_file = st.file_uploader("Upload Excel Dataset", type=["xlsx"])
 
