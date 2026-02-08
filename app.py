@@ -115,55 +115,55 @@ if uploaded_file is not None:
 
    # ---------- TAB 4: SMART CHATBOT ----------
     with tab4:
-    st.subheader("💬 Smart Data Chatbot")
+            st.subheader("💬 Smart Data Chatbot")
 
-    question = st.text_input("Ask anything about your data...")
+            question = st.text_input("Ask anything about your data...")
 
-    if question and "Sales" in df.columns:
+             if question and "Sales" in df.columns:
 
-        q = question.lower()
+               q = question.lower()
 
-        # Total sales
-        if "total" in q and "sales" in q:
-            total = df["Sales"].sum()
-            st.success(f"Total sales is {total:,.2f}.")
+             # Total sales
+             if "total" in q and "sales" in q:
+                 total = df["Sales"].sum()
+                 st.success(f"Total sales is {total:,.2f}.")
 
-        # Average sales
-        elif "average" in q:
-            avg = df["Sales"].mean()
-            st.success(f"Average sales per order is {avg:,.2f}.")
+             # Average sales
+             elif "average" in q:
+                avg = df["Sales"].mean()
+                st.success(f"Average sales per order is {avg:,.2f}.")
 
-        # Highest region
-        elif "highest" in q and "region" in q:
-            region = df.groupby("Region")["Sales"].sum().idxmax()
-            st.success(f"The highest performing region is {region}.")
+             # Highest region
+             elif "highest" in q and "region" in q:
+                region = df.groupby("Region")["Sales"].sum().idxmax()
+                st.success(f"The highest performing region is {region}.")
 
-        # Lowest region
-        elif "lowest" in q and "region" in q:
-            region = df.groupby("Region")["Sales"].sum().idxmin()
-            st.success(f"The lowest performing region is {region}.")
+             # Lowest region
+             elif "lowest" in q and "region" in q:
+                region = df.groupby("Region")["Sales"].sum().idxmin()
+                st.success(f"The lowest performing region is {region}.")
 
-        # Top category
-        elif "top" in q and "category" in q:
-            cat = df.groupby("Category")["Sales"].sum().idxmax()
-            st.success(f"The top selling category is {cat}.")
+             # Top category
+             elif "top" in q and "category" in q:
+                cat = df.groupby("Category")["Sales"].sum().idxmax()
+                st.success(f"The top selling category is {cat}.")
 
-        # Prediction question
-        elif "predict" in q or "next" in q:
-            from sklearn.linear_model import LinearRegression
-            import numpy as np
+            # Prediction question
+            elif "predict" in q or "next" in q:
+             from sklearn.linear_model import LinearRegression
+             import numpy as np
 
-            X = np.arange(len(df)).reshape(-1, 1)
-            y = df["Sales"].values
+             X = np.arange(len(df)).reshape(-1, 1)
+             y = df["Sales"].values
 
-            model = LinearRegression()
-            model.fit(X, y)
+             model = LinearRegression()
+             model.fit(X, y)
 
-            next_sales = model.predict([[len(df)]])[0]
-            st.success(f"Predicted next sales value is {next_sales:,.2f}.")
+             next_sales = model.predict([[len(df)]])[0]
+             st.success(f"Predicted next sales value is {next_sales:,.2f}.")
 
-        else:
-            st.info(
+             else:
+               st.info(
                 "I can answer about total sales, average sales, highest/lowest region, top category, or future prediction."
             )
 
