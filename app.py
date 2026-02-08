@@ -50,21 +50,20 @@ if uploaded_file is not None:
             st.pyplot(fig)
         else:
             st.warning("Required columns not found.")
+# ---------- TAB 3: AI INSIGHTS ----------
+with tab3:
+    st.subheader("AI Generated Insights (Demo Mode)")
 
-    # ---------- TAB 3: AI INSIGHTS ----------
-    with tab3:
-        st.subheader("AI Generated Insights (Demo Mode)")
+    if "Sales" in df.columns:
+        total_sales = df["Sales"].sum()
+        avg_sales = df["Sales"].mean()
+        max_sales = df["Sales"].max()
 
-        if "Sales" in df.columns:
-            total_sales = df["Sales"].sum()
-            avg_sales = df["Sales"].mean()
-            max_sales = df["Sales"].max()
+        top_region = "N/A"
+        if "Region" in df.columns:
+            top_region = df.groupby("Region")["Sales"].sum().idxmax()
 
-            top_region = "N/A"
-            if "Region" in df.columns:
-                top_region = df.groupby("Region")["Sales"].sum().idxmax()
-
-            ai_text = f"""
+        ai_text = f"""
 Total Sales: {total_sales:,.2f}
 
 Average Sales per Order: {avg_sales:,.2f}
@@ -76,26 +75,43 @@ Top Performing Region: {top_region}
 Insight:
 Focus marketing and inventory in the {top_region} region to increase revenue.
 """
-            st.write(ai_text)
+        st.write(ai_text)
 
-            # PDF
-            def create_pdf(text):
-                file_path = "/tmp/datagenie_report.pdf"
-                doc = SimpleDocTemplate(file_path)
-                styles = getSampleStyleSheet()
-                elements = []
+        # -------- ML SALES PREDICTION --------
+        st.subheader("📈 Sales Prediction")
 
-                for line in text.split("\n"):
-                    elements.append(Paragraph(line, styles["Normal"]))
-                    elements.append(Spacer(1, 12))
+        from sklearn.linear_model import LinearRegression
+        import numpy as np
 
-                doc.build(elements)
-                return file_path
+        X = np.arange(len(df)).reshape(-1, 1)
+        y = df["Sales"].values
 
-            if st.button("📄 Download AI Report as PDF"):
-                pdf_path = create_pdf(ai_text)
-                with open(pdf_path, "rb") as f:
-                    st.download_button("⬇️ Download PDF", f, "DataGenie_Report.pdf")
+        model = LinearRegression()
+        model.fit(X, y)
+
+        next_index = np.array([[len(df)]])
+        next_sales = model.predict(next_index)[0]
+
+        st.success(f"🔮 Predicted next sale value: {next_sales:,.2f}")
+
+        # -------- PDF --------
+        def create_pdf(text):
+            file_path = "/tmp/datagenie_report.pdf"
+            doc = SimpleDocTemplate(file_path)
+            styles = getSampleStyleSheet()
+            elements = []
+
+            for line in text.split("\n"):
+                elements.append(Paragraph(line, styles["Normal"]))
+                elements.append(Spacer(1, 12))
+
+            doc.build(elements)
+            return file_path
+
+        if st.button("📄 Download AI Report as PDF"):
+            pdf_path = create_pdf(ai_text)
+            with open(pdf_path, "rb") as f:
+                st.download_button("⬇️ Download PDF", f, "DataGenie_Report.pdf")
 
     # ---------- TAB 4: CHATBOT ----------
     with tab4:

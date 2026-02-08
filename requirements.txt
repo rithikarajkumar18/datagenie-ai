@@ -4,5 +4,7 @@ matplotlib
 openpyxl
 reportlab
 openai
+scikit-learn
+
 
 
