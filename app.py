@@ -103,45 +103,45 @@ Focus marketing and inventory in the {top_region} region to increase revenue.
                     elements.append(Paragraph(line, styles["Normal"]))
                     elements.append(Spacer(1, 12))
     # ---------- TAB 4: SMART CHATBOT ----------
-      with tab4:
-         st.subheader("💬 Smart Data Chatbot")
+    with tab4:
+        st.subheader("💬 Smart Data Chatbot")
 
-         question = st.text_input("Ask anything about your data...")
+          question = st.text_input("Ask anything about your data...")
 
-         if question and "Sales" in df.columns:
-            q = question.lower()
+        if question and "Sales" in df.columns:
+          q = question.lower()
 
-            if "total" in q and "sales" in q:
-                total = df["Sales"].sum()
-                st.success(f"Total sales is {total:,.2f}.")
+        if "total" in q and "sales" in q:
+          total = df["Sales"].sum()
+          st.success(f"Total sales is {total:,.2f}.")
 
-            elif "average" in q:
-                avg = df["Sales"].mean()
-                st.success(f"Average sales per order is {avg:,.2f}.")
+        elif "average" in q:
+          avg = df["Sales"].mean()
+          st.success(f"Average sales per order is {avg:,.2f}.")
 
-            elif "highest" in q and "region" in q:
-                region = df.groupby("Region")["Sales"].sum().idxmax()
-                st.success(f"The highest performing region is {region}.")
+        elif "highest" in q and "region" in q:
+          region = df.groupby("Region")["Sales"].sum().idxmax()
+          st.success(f"The highest performing region is {region}.")
 
-            elif "lowest" in q and "region" in q:
-                region = df.groupby("Region")["Sales"].sum().idxmin()
-                st.success(f"The lowest performing region is {region}.")
+        elif "lowest" in q and "region" in q:
+          region = df.groupby("Region")["Sales"].sum().idxmin()
+          st.success(f"The lowest performing region is {region}.")
 
-            elif "top" in q and "category" in q:
-                cat = df.groupby("Category")["Sales"].sum().idxmax()
-                st.success(f"The top selling category is {cat}.")
+        elif "top" in q and "category" in q:
+          cat = df.groupby("Category")["Sales"].sum().idxmax()
+          st.success(f"The top selling category is {cat}.")
 
-            elif "predict" in q or "next" in q:
-                X = np.arange(len(df)).reshape(-1, 1)
-                y = df["Sales"].values
+        elif "predict" in q or "next" in q:
+          X = np.arange(len(df)).reshape(-1, 1)
+          y = df["Sales"].values
 
-                model = LinearRegression()
-                model.fit(X, y)
+          model = LinearRegression()
+          model.fit(X, y)
 
-                next_sales = model.predict([[len(df)]])[0]
-                st.success(f"Predicted next sales value is {next_sales:,.2f}.")
+          next_sales = model.predict([[len(df)]])[0]
+          st.success(f"Predicted next sales value is {next_sales:,.2f}.")
 
-            else:
-                st.info(
+        else:
+          st.info(
                     "I can answer about total sales, average sales, highest/lowest region, top category, or future prediction."
-                )
+                 )
