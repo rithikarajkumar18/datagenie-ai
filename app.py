@@ -22,3 +22,26 @@ if "Sales" in df.columns:
 
     ai_text = response.choices[0].message.content
     st.write(ai_text)
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+
+def create_pdf(text):
+    file_path = "/tmp/datagenie_report.pdf"
+    doc = SimpleDocTemplate(file_path)
+
+    styles = getSampleStyleSheet()
+    elements = []
+
+    for line in text.split("\n"):
+        elements.append(Paragraph(line, styles["Normal"]))
+        elements.append(Spacer(1, 12))
+
+    doc.build(elements)
+    return file_path
+
+
+if st.button("📄 Download AI Report as PDF"):
+    pdf_path = create_pdf(ai_text)
+    with open(pdf_path, "rb") as f:
+        st.download_button("⬇️ Click to Download PDF", f, file_name="DataGenie_Report.pdf")
+
