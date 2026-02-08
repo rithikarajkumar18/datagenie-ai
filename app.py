@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from openai import OpenAI
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
@@ -9,14 +8,13 @@ st.set_page_config(page_title="DataGenie AI", layout="wide")
 
 st.title("🤖 DataGenie – AI Powered Decision Support System")
 
-# OpenAI client
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
 uploaded_file = st.file_uploader("Upload Excel Dataset", type=["xlsx"])
 
 ai_text = ""
 
-if uploaded_file:
+# -------- ONLY run after file upload --------
+if uploaded_file is not None:
+
     df = pd.read_excel(uploaded_file)
 
     st.subheader("📄 Raw Data")
@@ -42,49 +40,33 @@ if uploaded_file:
         cat_sales.plot(kind="bar", ax=ax)
         st.pyplot(fig)
 
-    # -------- AI INSIGHTS --------
+    # -------- FREE DEMO AI INSIGHTS --------
+    st.subheader("🤖 AI Generated Insights (Demo Mode)")
+
     if "Sales" in df.columns:
-        st.subheader("🤖 AI Generated Insights")
+        total_sales = df["Sales"].sum()
+        avg_sales = df["Sales"].mean()
+        max_sales = df["Sales"].max()
 
-        summary = df.describe().to_string()
+        top_region = "N/A"
+        if "Region" in df.columns:
+            top_region = df.groupby("Region")["Sales"].sum().idxmax()
 
-        prompt = f"""
-        You are a business analyst.
-        Analyze this sales summary and give insights and recommendations:
+        ai_text = f"""
+Total Sales: {total_sales:,.2f}
 
-        {summary}
-        """
+Average Sales per Order: {avg_sales:,.2f}
 
-        st.subheader("🤖 AI Generated Insights (Demo Mode)")
+Highest Single Sale: {max_sales:,.2f}
 
-ai_text = ""
+Top Performing Region: {top_region}
 
-if "Sales" in df.columns:
-    total_sales = df["Sales"].sum()
-    avg_sales = df["Sales"].mean()
-    max_sales = df["Sales"].max()
+Insight:
+Sales performance is strong in the {top_region} region.
+Focus marketing and inventory in this region to increase revenue.
+"""
 
-    top_region = "N/A"
-    if "Region" in df.columns:
-        top_region = df.groupby("Region")["Sales"].sum().idxmax()
-
-    ai_text = f"""
-    • Total Sales: {total_sales:,.2f}
-
-    • Average Sales per Order: {avg_sales:,.2f}
-
-    • Highest Single Sale: {max_sales:,.2f}
-
-    • Top Performing Region: {top_region}
-
-    📊 Insight:
-    Sales performance is strong in the {top_region} region.
-    Focus on increasing marketing and inventory in this region
-    to maximize revenue. Monitor low-sales regions for improvement.
-    """
-
-    st.write(ai_text)
-
+        st.write(ai_text)
 
     # -------- PDF DOWNLOAD --------
     def create_pdf(text):
