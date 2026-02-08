@@ -8,132 +8,154 @@ import numpy as np
 
 st.set_page_config(page_title="DataGenie AI", layout="wide")
 
-# ---------- HEADER ----------
-st.markdown("""
-    <h1 style='text-align: center;'>🤖 DataGenie</h1>
-    <p style='text-align: center; color: gray;'>AI‑Powered Decision Support Dashboard</p>
-""", unsafe_allow_html=True)
+# ---------- SESSION STATE LOGIN ----------
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
-# ---------- SIDEBAR ----------
-st.sidebar.title("⚙️ Controls")
-uploaded_file = st.sidebar.file_uploader("Upload Excel Dataset", type=["xlsx"])
+# ---------- LOGIN PAGE ----------
+if not st.session_state.logged_in:
+    st.markdown("""
+        <h1 style='text-align: center;'>🤖 DataGenie</h1>
+        <p style='text-align: center; color: gray;'>AI‑Powered Decision Support System</p>
+    """, unsafe_allow_html=True)
 
-# ---- Demo login system ----
-st.sidebar.markdown("---")
-st.sidebar.subheader("🔐 Demo Login")
-username = st.sidebar.text_input("Username")
-password = st.sidebar.text_input("Password", type="password")
-login_btn = st.sidebar.button("Login")
+    st.markdown("### 🔐 Login to Continue")
 
-logged_in = False
-if login_btn:
-    if username == "admin" and password == "1234":
-        st.sidebar.success("Login successful")
-        logged_in = True
-    else:
-        st.sidebar.error("Invalid credentials")
+    col1, col2, col3 = st.columns([1, 2, 1])
 
-ai_text = ""
-df = None
+    with col2:
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        login_btn = st.button("Login", use_container_width=True)
 
-# ---------- AFTER UPLOAD ----------
-if uploaded_file is not None and logged_in:
-    df = pd.read_excel(uploaded_file)
+        if login_btn:
+            if username == "admin" and password == "1234":
+                st.session_state.logged_in = True
+                st.success("Login successful! Reloading...")
+                st.rerun()
+            else:
+                st.error("Invalid username or password")
 
-    # ---------- CLEANING ----------
-    df = df.drop_duplicates()
+# ---------- MAIN APP AFTER LOGIN ----------
+else:
+    # ---------- HEADER ----------
+    st.markdown("""
+        <h1 style='text-align: center;'>🤖 DataGenie Dashboard</h1>
+        <p style='text-align: center; color: gray;'>AI‑Powered Decision Support Analytics</p>
+    """, unsafe_allow_html=True)
 
-    for col in df.select_dtypes(include="number").columns:
-        df[col] = df[col].fillna(df[col].mean())
-
-    for col in df.select_dtypes(include="object").columns:
-        df[col] = df[col].fillna("Unknown")
-
-    # ---------- KPI CARDS ----------
-    if "Sales" in df.columns:
-        total_sales = df["Sales"].sum()
-        avg_sales = df["Sales"].mean()
-        max_sales = df["Sales"].max()
-
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Sales", f"{total_sales:,.0f}")
-        col2.metric("Average Sales", f"{avg_sales:,.0f}")
-        col3.metric("Highest Sale", f"{max_sales:,.0f}")
+    # Logout button
+    if st.button("🚪 Logout"):
+        st.session_state.logged_in = False
+        st.rerun()
 
     st.divider()
 
-    # ---------- TABS ----------
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📄 Data", "📊 Dashboard", "🤖 AI Insights", "💬 Chatbot"
-    ])
+    # ---------- SIDEBAR ----------
+    st.sidebar.title("⚙️ Controls")
+    uploaded_file = st.sidebar.file_uploader("Upload Excel Dataset", type=["xlsx"])
 
-    # ---------- TAB 1: DATA ----------
-    with tab1:
-        st.subheader("Dataset Preview")
-        st.dataframe(df, use_container_width=True)
+    ai_text = ""
+    df = None
 
-    # ---------- TAB 2: DASHBOARD ----------
-    with tab2:
-        st.subheader("📊 Advanced Interactive Dashboard")
+    # ---------- AFTER UPLOAD ----------
+    if uploaded_file is not None:
+        df = pd.read_excel(uploaded_file)
 
-        if "Sales" in df.columns:
+        # ---------- CLEANING ----------
+        df = df.drop_duplicates()
 
-            colA, colB = st.columns(2)
+        for col in df.select_dtypes(include="number").columns:
+            df[col] = df[col].fillna(df[col].mean())
 
-            # Filters
-            if "Region" in df.columns:
-                regions = colA.multiselect("Region", df["Region"].unique(), default=df["Region"].unique())
-                df_filtered = df[df["Region"].isin(regions)]
-            else:
-                df_filtered = df.copy()
+        for col in df.select_dtypes(include="object").columns:
+            df[col] = df[col].fillna("Unknown")
 
-            if "Category" in df.columns:
-                categories = colB.multiselect("Category", df_filtered["Category"].unique(), default=df_filtered["Category"].unique())
-                df_filtered = df_filtered[df_filtered["Category"].isin(categories)]
-
-            # Bar chart
-            if "Category" in df_filtered.columns:
-                st.markdown("### Sales by Category")
-                cat_sales = df_filtered.groupby("Category")["Sales"].sum()
-                fig1, ax1 = plt.subplots()
-                cat_sales.plot(kind="bar", ax=ax1)
-                st.pyplot(fig1)
-
-            # Pie chart
-            if "Region" in df_filtered.columns:
-                st.markdown("### Region Distribution")
-                region_sales = df_filtered.groupby("Region")["Sales"].sum()
-                fig2, ax2 = plt.subplots()
-                region_sales.plot(kind="pie", autopct="%1.1f%%", ax=ax2)
-                ax2.set_ylabel("")
-                st.pyplot(fig2)
-
-            # Line trend
-            st.markdown("### Sales Trend Over Time")
-            trend = df_filtered["Sales"].reset_index(drop=True)
-            fig3, ax3 = plt.subplots()
-            ax3.plot(trend)
-            ax3.set_xlabel("Order Index")
-            ax3.set_ylabel("Sales")
-            st.pyplot(fig3)
-
-        else:
-            st.warning("Sales column not found in dataset.")
-
-    # ---------- TAB 3: AI INSIGHTS ----------
-    with tab3:
-        st.subheader("🤖 AI Insights & Forecast")
-
+        # ---------- KPI CARDS ----------
         if "Sales" in df.columns:
             total_sales = df["Sales"].sum()
             avg_sales = df["Sales"].mean()
             max_sales = df["Sales"].max()
 
-            top_region = "N/A"
-            if "Region" in df.columns:
-                top_region = df.groupby("Region")["Sales"].sum().idxmax()
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Total Sales", f"{total_sales:,.0f}")
+            col2.metric("Average Sales", f"{avg_sales:,.0f}")
+            col3.metric("Highest Sale", f"{max_sales:,.0f}")
 
-            ai_text = f"""
+        st.divider()
+
+        # ---------- TABS ----------
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "📄 Data", "📊 Dashboard", "🤖 AI Insights", "💬 Chatbot"
+        ])
+
+        # ---------- TAB 1: DATA ----------
+        with tab1:
+            st.subheader("Dataset Preview")
+            st.dataframe(df, use_container_width=True)
+
+        # ---------- TAB 2: DASHBOARD ----------
+        with tab2:
+            st.subheader("📊 Advanced Interactive Dashboard")
+
+            if "Sales" in df.columns:
+
+                colA, colB = st.columns(2)
+
+                # Filters
+                if "Region" in df.columns:
+                    regions = colA.multiselect("Region", df["Region"].unique(), default=df["Region"].unique())
+                    df_filtered = df[df["Region"].isin(regions)]
+                else:
+                    df_filtered = df.copy()
+
+                if "Category" in df.columns:
+                    categories = colB.multiselect("Category", df_filtered["Category"].unique(), default=df_filtered["Category"].unique())
+                    df_filtered = df_filtered[df_filtered["Category"].isin(categories)]
+
+                # Bar chart
+                if "Category" in df_filtered.columns:
+                    st.markdown("### Sales by Category")
+                    cat_sales = df_filtered.groupby("Category")["Sales"].sum()
+                    fig1, ax1 = plt.subplots()
+                    cat_sales.plot(kind="bar", ax=ax1)
+                    st.pyplot(fig1)
+
+                # Pie chart
+                if "Region" in df_filtered.columns:
+                    st.markdown("### Region Distribution")
+                    region_sales = df_filtered.groupby("Region")["Sales"].sum()
+                    fig2, ax2 = plt.subplots()
+                    region_sales.plot(kind="pie", autopct="%1.1f%%", ax=ax2)
+                    ax2.set_ylabel("")
+                    st.pyplot(fig2)
+
+                # Line trend
+                st.markdown("### Sales Trend Over Time")
+                trend = df_filtered["Sales"].reset_index(drop=True)
+                fig3, ax3 = plt.subplots()
+                ax3.plot(trend)
+                ax3.set_xlabel("Order Index")
+                ax3.set_ylabel("Sales")
+                st.pyplot(fig3)
+
+            else:
+                st.warning("Sales column not found in dataset.")
+
+        # ---------- TAB 3: AI INSIGHTS ----------
+        with tab3:
+            st.subheader("🤖 AI Insights & Forecast")
+
+            if "Sales" in df.columns:
+                total_sales = df["Sales"].sum()
+                avg_sales = df["Sales"].mean()
+                max_sales = df["Sales"].max()
+
+                top_region = "N/A"
+                if "Region" in df.columns:
+                    top_region = df.groupby("Region")["Sales"].sum().idxmax()
+
+                ai_text = f"""
 Total Sales: {total_sales:,.2f}
 
 Average Sales per Order: {avg_sales:,.2f}
@@ -146,75 +168,75 @@ AI Recommendation:
 Focus marketing and inventory in the {top_region} region to maximize revenue growth.
 """
 
-            st.info(ai_text)
+                st.info(ai_text)
 
-            # -------- FUTURE FORECAST (10 steps) --------
-            st.subheader("📈 Future Sales Forecast (Next 10)")
+                # -------- FUTURE FORECAST (10 steps) --------
+                st.subheader("📈 Future Sales Forecast (Next 10)")
 
-            X = np.arange(len(df)).reshape(-1, 1)
-            y = df["Sales"].values
-
-            model = LinearRegression()
-            model.fit(X, y)
-
-            future_X = np.arange(len(df), len(df) + 10).reshape(-1, 1)
-            future_preds = model.predict(future_X)
-
-            fig4, ax4 = plt.subplots()
-            ax4.plot(range(len(df)), y)
-            ax4.plot(range(len(df), len(df) + 10), future_preds)
-            ax4.set_xlabel("Order Index")
-            ax4.set_ylabel("Sales")
-            st.pyplot(fig4)
-
-            # -------- PDF --------
-            def create_pdf(text):
-                file_path = "/tmp/datagenie_report.pdf"
-                doc = SimpleDocTemplate(file_path)
-                styles = getSampleStyleSheet()
-                elements = []
-
-                for line in text.split("\n"):
-                    elements.append(Paragraph(line, styles["Normal"]))
-                    elements.append(Spacer(1, 12))
-
-                doc.build(elements)
-                return file_path
-
-            if st.button("📄 Download AI Report"):
-                pdf_path = create_pdf(ai_text)
-                with open(pdf_path, "rb") as f:
-                    st.download_button("⬇️ Download PDF", f, "DataGenie_Report.pdf")
-
-    # ---------- TAB 4: CHATBOT ----------
-    with tab4:
-        st.subheader("💬 AI‑Style Data Chatbot")
-
-        question = st.text_input("Ask anything about your data...")
-
-        if question and "Sales" in df.columns:
-            q = question.lower()
-
-            if "total" in q and "sales" in q:
-                st.success(f"Total sales is {df['Sales'].sum():,.2f}.")
-
-            elif "average" in q:
-                st.success(f"Average sales per order is {df['Sales'].mean():,.2f}.")
-
-            elif "highest" in q and "region" in q and "Region" in df.columns:
-                region = df.groupby("Region")["Sales"].sum().idxmax()
-                st.success(f"Highest performing region is {region}.")
-
-            elif "predict" in q or "forecast" in q:
                 X = np.arange(len(df)).reshape(-1, 1)
                 y = df["Sales"].values
+
                 model = LinearRegression()
                 model.fit(X, y)
-                next_val = model.predict([[len(df)]])[0]
-                st.success(f"Next predicted sales value is {next_val:,.2f}.")
 
-            else:
-                st.info("Try asking about total sales, average sales, top region, or future forecast.")
+                future_X = np.arange(len(df), len(df) + 10).reshape(-1, 1)
+                future_preds = model.predict(future_X)
 
-else:
-    st.info("⬅️ Login and upload an Excel dataset to use DataGenie.")
+                fig4, ax4 = plt.subplots()
+                ax4.plot(range(len(df)), y)
+                ax4.plot(range(len(df), len(df) + 10), future_preds)
+                ax4.set_xlabel("Order Index")
+                ax4.set_ylabel("Sales")
+                st.pyplot(fig4)
+
+                # -------- PDF --------
+                def create_pdf(text):
+                    file_path = "/tmp/datagenie_report.pdf"
+                    doc = SimpleDocTemplate(file_path)
+                    styles = getSampleStyleSheet()
+                    elements = []
+
+                    for line in text.split("\n"):
+                        elements.append(Paragraph(line, styles["Normal"]))
+                        elements.append(Spacer(1, 12))
+
+                    doc.build(elements)
+                    return file_path
+
+                if st.button("📄 Download AI Report"):
+                    pdf_path = create_pdf(ai_text)
+                    with open(pdf_path, "rb") as f:
+                        st.download_button("⬇️ Download PDF", f, "DataGenie_Report.pdf")
+
+        # ---------- TAB 4: CHATBOT ----------
+        with tab4:
+            st.subheader("💬 AI‑Style Data Chatbot")
+
+            question = st.text_input("Ask anything about your data...")
+
+            if question and "Sales" in df.columns:
+                q = question.lower()
+
+                if "total" in q and "sales" in q:
+                    st.success(f"Total sales is {df['Sales'].sum():,.2f}.")
+
+                elif "average" in q:
+                    st.success(f"Average sales per order is {df['Sales'].mean():,.2f}.")
+
+                elif "highest" in q and "region" in q and "Region" in df.columns:
+                    region = df.groupby("Region")["Sales"].sum().idxmax()
+                    st.success(f"Highest performing region is {region}.")
+
+                elif "predict" in q or "forecast" in q:
+                    X = np.arange(len(df)).reshape(-1, 1)
+                    y = df["Sales"].values
+                    model = LinearRegression()
+                    model.fit(X, y)
+                    next_val = model.predict([[len(df)]])[0]
+                    st.success(f"Next predicted sales value is {next_val:,.2f}.")
+
+                else:
+                    st.info("Try asking about total sales, average sales, top region, or future forecast.")
+
+    else:
+        st.info("⬅️ Upload an Excel dataset from the sidebar to start analysis.")
