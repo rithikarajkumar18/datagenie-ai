@@ -114,42 +114,42 @@ if uploaded_file is not None:
                 st.download_button("⬇️ Download PDF", f, "DataGenie_Report.pdf")
 
         # ---------- TAB 4: SMART CHATBOT ----------
-with tab4:
-    st.subheader("💬 Smart Data Chatbot")
+        with tab4:
+          st.subheader("💬 Smart Data Chatbot")
 
-    question = st.text_input("Ask anything about your data...")
+          question = st.text_input("Ask anything about your data...")
 
-    if question and "Sales" in df.columns:
+          if question and "Sales" in df.columns:
 
-        q = question.lower()
+             q = question.lower()
 
         # Total sales
-        if "total" in q and "sales" in q:
+          if "total" in q and "sales" in q:
             total = df["Sales"].sum()
             st.success(f"Total sales is {total:,.2f}.")
 
         # Average sales
-        elif "average" in q:
+          elif "average" in q:
             avg = df["Sales"].mean()
             st.success(f"Average sales per order is {avg:,.2f}.")
 
         # Highest region
-        elif "highest" in q and "region" in q:
+          elif "highest" in q and "region" in q:
             region = df.groupby("Region")["Sales"].sum().idxmax()
             st.success(f"The highest performing region is {region}.")
 
         # Lowest region
-        elif "lowest" in q and "region" in q:
+          elif "lowest" in q and "region" in q:
             region = df.groupby("Region")["Sales"].sum().idxmin()
             st.success(f"The lowest performing region is {region}.")
 
         # Top category
-        elif "top" in q and "category" in q:
+          elif "top" in q and "category" in q:
             cat = df.groupby("Category")["Sales"].sum().idxmax()
             st.success(f"The top selling category is {cat}.")
 
         # Prediction question
-        elif "predict" in q or "next" in q:
+          elif "predict" in q or "next" in q:
             from sklearn.linear_model import LinearRegression
             import numpy as np
 
@@ -162,7 +162,7 @@ with tab4:
             next_sales = model.predict([[len(df)]])[0]
             st.success(f"Predicted next sales value is {next_sales:,.2f}.")
 
-        else:
+          else:
             st.info(
                 "I can answer about total sales, average sales, highest/lowest region, top category, or future prediction."
             )
