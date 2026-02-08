@@ -97,10 +97,10 @@ def main_app():
 
     # ---------- AFTER UPLOAD ----------
     if uploaded_file is not None:
-       if uploaded_file.name.endswith(".csv"):
-           df = pd.read_csv(uploaded_file)
-       else:
-           df = pd.read_excel(uploaded_file)
+        if uploaded_file.name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
 
     # ---------- CLEANING ----------
     def clean_data(df):
@@ -275,9 +275,9 @@ Focus marketing and inventory in the {top_region} region to increase revenue.
                     st.info("Try asking about total, average, region performance, or prediction.")
 
     else:
-        st.info("⬅️ Upload an Excel file from the sidebar to begin.")
-      if st.button("Go to Upload Sidebar"):
-         st.sidebar.warning("Please upload your Excel/CSV file here 👆")
+        
+        if st.button(""⬅️ Upload an Excel file from the sidebar to begin.""):
+            st.sidebar.info("📂Please upload your Excel/CSV file here 👆")
 
 # ---------- ROUTER ----------
 if not st.session_state.logged_in:
