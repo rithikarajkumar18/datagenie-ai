@@ -75,11 +75,14 @@ def register_page():
 # ---------- MAIN APP ----------
 def main_app():
     # ---------- HEADER ----------
-    st.markdown("""
-        <h1 style='text-align: center;'>🤖 DataGenie</h1>
-        <p style='text-align: center; color: gray;'>AI-Powered Decision Support Dashboard</p>
+    col_left, col_right = st.columns([9, 1])  # 9:1 ratio, left for title, right for button
+    with col_left:
+        st.markdown("""
+            <h1 style='text-align: left;'>🤖 DataGenie</h1>
+            <p style='text-align: left; color: gray;'>AI-Powered Decision Support Dashboard</p>
     """, unsafe_allow_html=True)
 
+    with col_right:
     if st.button("Logout"):
         st.session_state.logged_in = False
         st.session_state.page = "login"
