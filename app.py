@@ -104,9 +104,9 @@ Focus marketing and inventory in the {top_region} region to increase revenue.
                     elements.append(Spacer(1, 12))
     # ---------- TAB 4: SMART CHATBOT ----------
     with tab4:
-    st.subheader("💬 Smart Data Chatbot")
+          st.subheader("💬 Smart Data Chatbot")
 
-    question = st.text_input("Ask anything about your data...")
+          question = st.text_input("Ask anything about your data...")
 
     if question:
         q = question.lower()
