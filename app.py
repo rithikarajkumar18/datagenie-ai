@@ -50,31 +50,31 @@ if uploaded_file is not None:
             st.pyplot(fig)
         else:
             st.warning("Required columns not found.")
-# ---------- TAB 3: AI INSIGHTS ----------
-with tab3:
-    st.subheader("AI Generated Insights (Demo Mode)")
+    # ---------- TAB 3: AI INSIGHTS ----------
+    with tab3:
+        st.subheader("AI Generated Insights (Demo Mode)")
 
-    if "Sales" in df.columns:
-        total_sales = df["Sales"].sum()
-        avg_sales = df["Sales"].mean()
-        max_sales = df["Sales"].max()
+        if "Sales" in df.columns:
+            total_sales = df["Sales"].sum()
+            avg_sales = df["Sales"].mean()
+            max_sales = df["Sales"].max()
 
-        top_region = "N/A"
+            top_region = "N/A"
         if "Region" in df.columns:
             top_region = df.groupby("Region")["Sales"].sum().idxmax()
 
         ai_text = f"""
-Total Sales: {total_sales:,.2f}
+      Total Sales: {total_sales:,.2f}
 
-Average Sales per Order: {avg_sales:,.2f}
+      Average Sales per Order: {avg_sales:,.2f}
 
-Highest Single Sale: {max_sales:,.2f}
+      Highest Single Sale: {max_sales:,.2f}
 
-Top Performing Region: {top_region}
+      Top Performing Region: {top_region}
 
-Insight:
-Focus marketing and inventory in the {top_region} region to increase revenue.
-"""
+      Insight:
+        Focus marketing and inventory in the {top_region} region to increase revenue.
+        """
         st.write(ai_text)
 
         # -------- ML SALES PREDICTION --------
