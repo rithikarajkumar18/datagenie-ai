@@ -8,48 +8,82 @@ import numpy as np
 
 st.set_page_config(page_title="DataGenie AI", layout="wide")
 
-# ---------- SESSION STATE LOGIN ----------
+# ---------- SESSION STATE ----------
+if "users" not in st.session_state:
+    st.session_state.users = {"admin": "1234"}
+
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
+if "page" not in st.session_state:
+    st.session_state.page = "login"
+
 # ---------- LOGIN PAGE ----------
-if not st.session_state.logged_in:
+def login_page():
     st.markdown("""
         <h1 style='text-align: center;'>🤖 DataGenie</h1>
-        <p style='text-align: center; color: gray;'>AI‑Powered Decision Support System</p>
+        <p style='text-align: center; color: gray;'>AI-Powered Decision Support Dashboard</p>
     """, unsafe_allow_html=True)
 
-    st.markdown("### 🔐 Login to Continue")
+    st.subheader("Login")
 
-    col1, col2, col3 = st.columns([1, 2, 1])
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
 
-    with col2:
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        login_btn = st.button("Login", use_container_width=True)
+    if st.button("Login"):
+        if username in st.session_state.users and st.session_state.users[username] == password:
+            st.session_state.logged_in = True
+            st.session_state.page = "app"
+            st.success("Login successful!")
+            st.rerun()
+        else:
+            st.error("Invalid username or password")
 
-        if login_btn:
-            if username == "admin" and password == "1234":
-                st.session_state.logged_in = True
-                st.success("Login successful! Reloading...")
-                st.rerun()
-            else:
-                st.error("Invalid username or password")
-
-# ---------- MAIN APP AFTER LOGIN ----------
-else:
-    # ---------- HEADER ----------
-    st.markdown("""
-        <h1 style='text-align: center;'>🤖 DataGenie Dashboard</h1>
-        <p style='text-align: center; color: gray;'>AI‑Powered Decision Support Analytics</p>
-    """, unsafe_allow_html=True)
-
-    # Logout button
-    if st.button("🚪 Logout"):
-        st.session_state.logged_in = False
+    st.markdown("---")
+    if st.button("Create new account"):
+        st.session_state.page = "register"
         st.rerun()
 
-    st.divider()
+
+# ---------- REGISTER PAGE ----------
+def register_page():
+    st.markdown("""
+        <h1 style='text-align: center;'>📝 Register for DataGenie</h1>
+    """, unsafe_allow_html=True)
+
+    new_user = st.text_input("New Username")
+    new_pass = st.text_input("New Password", type="password")
+    confirm_pass = st.text_input("Confirm Password", type="password")
+
+    if st.button("Register"):
+        if not new_user or not new_pass:
+            st.warning("Please fill all fields")
+        elif new_user in st.session_state.users:
+            st.error("Username already exists")
+        elif new_pass != confirm_pass:
+            st.error("Passwords do not match")
+        else:
+            st.session_state.users[new_user] = new_pass
+            st.success("Account created successfully! Please login.")
+
+    st.markdown("---")
+    if st.button("Back to Login"):
+        st.session_state.page = "login"
+        st.rerun()
+
+
+# ---------- MAIN APP ----------
+def main_app():
+    # ---------- HEADER ----------
+    st.markdown("""
+        <h1 style='text-align: center;'>🤖 DataGenie</h1>
+        <p style='text-align: center; color: gray;'>AI-Powered Decision Support Dashboard</p>
+    """, unsafe_allow_html=True)
+
+    if st.button("Logout"):
+        st.session_state.logged_in = False
+        st.session_state.page = "login"
+        st.rerun()
 
     # ---------- SIDEBAR ----------
     st.sidebar.title("⚙️ Controls")
@@ -89,50 +123,48 @@ else:
             "📄 Data", "📊 Dashboard", "🤖 AI Insights", "💬 Chatbot"
         ])
 
-        # ---------- TAB 1: DATA ----------
+        # ---------- TAB 1 ----------
         with tab1:
             st.subheader("Dataset Preview")
             st.dataframe(df, use_container_width=True)
 
-        # ---------- TAB 2: DASHBOARD ----------
+        # ---------- TAB 2 ----------
         with tab2:
-            st.subheader("📊 Advanced Interactive Dashboard")
+            st.subheader("📊 Interactive Sales Dashboard")
 
             if "Sales" in df.columns:
-
                 colA, colB = st.columns(2)
 
-                # Filters
                 if "Region" in df.columns:
-                    regions = colA.multiselect("Region", df["Region"].unique(), default=df["Region"].unique())
+                    regions = colA.multiselect("Filter by Region", df["Region"].unique(), default=df["Region"].unique())
                     df_filtered = df[df["Region"].isin(regions)]
                 else:
                     df_filtered = df.copy()
 
                 if "Category" in df.columns:
-                    categories = colB.multiselect("Category", df_filtered["Category"].unique(), default=df_filtered["Category"].unique())
+                    categories = colB.multiselect("Filter by Category", df_filtered["Category"].unique(), default=df_filtered["Category"].unique())
                     df_filtered = df_filtered[df_filtered["Category"].isin(categories)]
 
-                # Bar chart
                 if "Category" in df_filtered.columns:
                     st.markdown("### Sales by Category")
                     cat_sales = df_filtered.groupby("Category")["Sales"].sum()
+
                     fig1, ax1 = plt.subplots()
                     cat_sales.plot(kind="bar", ax=ax1)
                     st.pyplot(fig1)
 
-                # Pie chart
                 if "Region" in df_filtered.columns:
-                    st.markdown("### Region Distribution")
+                    st.markdown("### Sales Distribution by Region")
                     region_sales = df_filtered.groupby("Region")["Sales"].sum()
+
                     fig2, ax2 = plt.subplots()
                     region_sales.plot(kind="pie", autopct="%1.1f%%", ax=ax2)
                     ax2.set_ylabel("")
                     st.pyplot(fig2)
 
-                # Line trend
-                st.markdown("### Sales Trend Over Time")
+                st.markdown("### Sales Trend")
                 trend = df_filtered["Sales"].reset_index(drop=True)
+
                 fig3, ax3 = plt.subplots()
                 ax3.plot(trend)
                 ax3.set_xlabel("Order Index")
@@ -142,9 +174,9 @@ else:
             else:
                 st.warning("Sales column not found in dataset.")
 
-        # ---------- TAB 3: AI INSIGHTS ----------
+        # ---------- TAB 3 ----------
         with tab3:
-            st.subheader("🤖 AI Insights & Forecast")
+            st.subheader("AI Generated Insights")
 
             if "Sales" in df.columns:
                 total_sales = df["Sales"].sum()
@@ -164,14 +196,13 @@ Highest Single Sale: {max_sales:,.2f}
 
 Top Performing Region: {top_region}
 
-AI Recommendation:
-Focus marketing and inventory in the {top_region} region to maximize revenue growth.
+Insight:
+Focus marketing and inventory in the {top_region} region to increase revenue.
 """
 
                 st.info(ai_text)
 
-                # -------- FUTURE FORECAST (10 steps) --------
-                st.subheader("📈 Future Sales Forecast (Next 10)")
+                st.subheader("📈 Next Sale Prediction")
 
                 X = np.arange(len(df)).reshape(-1, 1)
                 y = df["Sales"].values
@@ -179,17 +210,9 @@ Focus marketing and inventory in the {top_region} region to maximize revenue gro
                 model = LinearRegression()
                 model.fit(X, y)
 
-                future_X = np.arange(len(df), len(df) + 10).reshape(-1, 1)
-                future_preds = model.predict(future_X)
+                next_sales = model.predict([[len(df)]])[0]
+                st.success(f"Predicted next sale value: {next_sales:,.2f}")
 
-                fig4, ax4 = plt.subplots()
-                ax4.plot(range(len(df)), y)
-                ax4.plot(range(len(df), len(df) + 10), future_preds)
-                ax4.set_xlabel("Order Index")
-                ax4.set_ylabel("Sales")
-                st.pyplot(fig4)
-
-                # -------- PDF --------
                 def create_pdf(text):
                     file_path = "/tmp/datagenie_report.pdf"
                     doc = SimpleDocTemplate(file_path)
@@ -208,9 +231,9 @@ Focus marketing and inventory in the {top_region} region to maximize revenue gro
                     with open(pdf_path, "rb") as f:
                         st.download_button("⬇️ Download PDF", f, "DataGenie_Report.pdf")
 
-        # ---------- TAB 4: CHATBOT ----------
+        # ---------- TAB 4 ----------
         with tab4:
-            st.subheader("💬 AI‑Style Data Chatbot")
+            st.subheader("💬 Smart Data Chatbot")
 
             question = st.text_input("Ask anything about your data...")
 
@@ -227,16 +250,28 @@ Focus marketing and inventory in the {top_region} region to maximize revenue gro
                     region = df.groupby("Region")["Sales"].sum().idxmax()
                     st.success(f"Highest performing region is {region}.")
 
-                elif "predict" in q or "forecast" in q:
+                elif "predict" in q or "next" in q:
                     X = np.arange(len(df)).reshape(-1, 1)
                     y = df["Sales"].values
+
                     model = LinearRegression()
                     model.fit(X, y)
-                    next_val = model.predict([[len(df)]])[0]
-                    st.success(f"Next predicted sales value is {next_val:,.2f}.")
+                    next_sales = model.predict([[len(df)]])[0]
+
+                    st.success(f"Predicted next sales value is {next_sales:,.2f}.")
 
                 else:
-                    st.info("Try asking about total sales, average sales, top region, or future forecast.")
+                    st.info("Try asking about total, average, region performance, or prediction.")
 
     else:
-        st.info("⬅️ Upload an Excel dataset from the sidebar to start analysis.")
+        st.info("⬅️ Upload an Excel file from the sidebar to begin.")
+
+
+# ---------- ROUTER ----------
+if not st.session_state.logged_in:
+    if st.session_state.page == "login":
+        login_page()
+    elif st.session_state.page == "register":
+        register_page()
+else:
+    main_app()
