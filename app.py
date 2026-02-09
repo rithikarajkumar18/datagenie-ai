@@ -319,7 +319,7 @@ Focus marketing and inventory in the {top_region} region to increase revenue.
                     st.info("Try asking about total, average, region performance, or prediction.")
                     # ---------- NO FILE UPLOADED ----------
     else:
-    st.markdown(
+        st.markdown(
         """
         <div style='text-align:center; margin-top:120px;'>
             <h3>📂 No dataset uploaded</h3>
