@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
 from sklearn.linear_model import LinearRegression
 import numpy as np
 import sqlite3
@@ -17,7 +15,6 @@ def get_connection():
 conn = get_connection()
 cursor = conn.cursor()
 
-# Create tables if not exist
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,7 +33,6 @@ CREATE TABLE IF NOT EXISTS uploads (
 """)
 conn.commit()
 
-
 # ---------- USER FUNCTIONS ----------
 def register_user(username, password):
     try:
@@ -46,11 +42,9 @@ def register_user(username, password):
     except:
         return False
 
-
 def check_login(username, password):
     cursor.execute("SELECT id FROM users WHERE username=? AND password=?", (username, password))
     return cursor.fetchone()
-
 
 def save_upload(user_id, filename):
     cursor.execute(
@@ -59,7 +53,6 @@ def save_upload(user_id, filename):
     )
     conn.commit()
 
-
 def get_uploads(user_id):
     cursor.execute(
         "SELECT filename, upload_time FROM uploads WHERE user_id=? ORDER BY id DESC",
@@ -67,6 +60,12 @@ def get_uploads(user_id):
     )
     return cursor.fetchall()
 
+# ---------- FIND SALES COLUMN ----------
+def find_sales_column(df):
+    for col in df.columns:
+        if col.lower() in ["sales", "amount", "revenue", "total"]:
+            return col
+    return None
 
 # ---------- SESSION ----------
 if "logged_in" not in st.session_state:
@@ -76,11 +75,10 @@ if "page" not in st.session_state:
 if "user_id" not in st.session_state:
     st.session_state.user_id = None
 
-
 # ---------- LOGIN ----------
 def login_page():
     st.markdown("<h1 style='text-align:center;'>🤖 DataGenie</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center;color:gray;'>AI-Powered Decision Support Dashboard</p>", unsafe_allow_html=True)
+    st.caption("AI-Powered Decision Support Dashboard")
 
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
@@ -98,7 +96,6 @@ def login_page():
     if st.button("Create new account"):
         st.session_state.page = "register"
         st.rerun()
-
 
 # ---------- REGISTER ----------
 def register_page():
@@ -120,7 +117,6 @@ def register_page():
         st.session_state.page = "login"
         st.rerun()
 
-
 # ---------- MAIN APP ----------
 def main_app():
 
@@ -136,11 +132,10 @@ def main_app():
             st.session_state.page = "login"
             st.rerun()
 
-    # SIDEBAR UPLOAD
+    # SIDEBAR
     st.sidebar.title("📂 Upload Dataset")
     uploaded_file = st.sidebar.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
 
-    # SHOW HISTORY
     st.sidebar.markdown("### 🕘 Previous Uploads")
     uploads = get_uploads(st.session_state.user_id)
     for f, t in uploads:
@@ -148,6 +143,7 @@ def main_app():
 
     df = None
 
+    # READ FILE
     if uploaded_file:
         if uploaded_file.name.endswith(".csv"):
             df = pd.read_csv(uploaded_file)
@@ -160,13 +156,14 @@ def main_app():
     if df is not None:
 
         df = df.drop_duplicates()
+        sales_col = find_sales_column(df)
 
         # KPIs
-        if "Sales" in df.columns:
+        if sales_col:
             colA, colB, colC = st.columns(3)
-            colA.metric("Total Sales", f"{df['Sales'].sum():,.0f}")
-            colB.metric("Average Sales", f"{df['Sales'].mean():,.0f}")
-            colC.metric("Max Sale", f"{df['Sales'].max():,.0f}")
+            colA.metric("Total Sales", f"{df[sales_col].sum():,.0f}")
+            colB.metric("Average Sales", f"{df[sales_col].mean():,.0f}")
+            colC.metric("Max Sale", f"{df[sales_col].max():,.0f}")
 
         st.divider()
 
@@ -178,35 +175,38 @@ def main_app():
 
         # DASHBOARD TAB
         with tab2:
-            if "Sales" in df.columns:
-
+            if sales_col:
                 fig, ax = plt.subplots()
-                df["Sales"].plot(ax=ax)
+                df[sales_col].plot(ax=ax)
                 st.pyplot(fig)
+            else:
+                st.warning("No sales column found in dataset.")
 
         # AI TAB
         with tab3:
-            if "Sales" in df.columns:
-                total = df["Sales"].sum()
-                avg = df["Sales"].mean()
+            if sales_col:
+                total = df[sales_col].sum()
+                avg = df[sales_col].mean()
 
                 st.info(f"Total Sales: {total:,.2f}\n\nAverage Sales: {avg:,.2f}")
 
                 X = np.arange(len(df)).reshape(-1, 1)
-                y = df["Sales"].values
+                y = df[sales_col].values
                 model = LinearRegression().fit(X, y)
                 pred = model.predict([[len(df)]])[0]
 
                 st.success(f"Next predicted sale: {pred:,.2f}")
+            else:
+                st.warning("AI insights need a sales column.")
 
         # CHAT TAB
         with tab4:
             q = st.text_input("Ask about sales...")
-            if q and "Sales" in df.columns:
+            if q and sales_col:
                 if "total" in q.lower():
-                    st.success(df["Sales"].sum())
+                    st.success(df[sales_col].sum())
                 elif "average" in q.lower():
-                    st.success(df["Sales"].mean())
+                    st.success(df[sales_col].mean())
 
     # ---------- NO FILE ----------
     else:
@@ -219,7 +219,6 @@ def main_app():
             """,
             unsafe_allow_html=True
         )
-
 
 # ---------- ROUTER ----------
 if not st.session_state.logged_in:
