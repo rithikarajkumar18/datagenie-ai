@@ -1,24 +1,24 @@
+# DataGenie Advanced App with User-Selectable Charts
+
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.linear_model import LinearRegression
 import numpy as np
 import sqlite3
-from datetime import datetime
+from sklearn.linear_model import LinearRegression
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
 st.set_page_config(page_title="DataGenie AI", layout="wide")
 
-# ---------- DATABASE ----------
-
-def get_connection():
+# ---------------- DATABASE ----------------
+def get_conn():
     return sqlite3.connect("datagenie.db", check_same_thread=False)
 
-conn = get_connection()
-cursor = conn.cursor()
+conn = get_conn()
+cur = conn.cursor()
 
-cursor.execute("""
+cur.execute("""
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE,
@@ -26,61 +26,92 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
-cursor.execute("""
+cur.execute("""
 CREATE TABLE IF NOT EXISTS uploads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
     filename TEXT,
-    upload_time TEXT
+    upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
 """)
+
 conn.commit()
 
-# ---------- USER FUNCTIONS ----------
+# ---------------- SESSION ----------------
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "page" not in st.session_state:
+    st.session_state.page = "login"
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
 
-def register_user(username, password):
+# ---------------- AUTH FUNCTIONS ----------------
+def register_user(u, p):
     try:
-        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
+        cur.execute("INSERT INTO users (username, password) VALUES (?, ?)", (u, p))
         conn.commit()
         return True
     except:
         return False
 
 
-def check_login(username, password):
-    cursor.execute("SELECT id FROM users WHERE username=? AND password=?", (username, password))
-    return cursor.fetchone()
+def login_user(u, p):
+    cur.execute("SELECT id FROM users WHERE username=? AND password=?", (u, p))
+    return cur.fetchone()
 
 
-def save_upload(user_id, filename):
-    cursor.execute(
-        "INSERT INTO uploads (user_id, filename, upload_time) VALUES (?, ?, ?)",
-        (user_id, filename, datetime.now().strftime("%d %b %Y %H:%M"))
-    )
+def save_upload(uid, name):
+    cur.execute("INSERT INTO uploads (user_id, filename) VALUES (?, ?)", (uid, name))
     conn.commit()
 
 
-def get_uploads(user_id):
-    cursor.execute(
-        "SELECT filename, upload_time FROM uploads WHERE user_id=? ORDER BY id DESC",
-        (user_id,)
-    )
-    return cursor.fetchall()
+def get_uploads(uid):
+    cur.execute("SELECT filename, upload_time FROM uploads WHERE user_id=? ORDER BY upload_time DESC", (uid,))
+    return cur.fetchall()
 
-# ---------- HELPERS ----------
+# ---------------- LOGIN PAGE ----------------
+def login_page():
+    st.title("🤖 DataGenie AI")
+    st.subheader("Login")
 
-def get_numeric_columns(df):
-    return df.select_dtypes(include=np.number).columns.tolist()
+    u = st.text_input("Username")
+    p = st.text_input("Password", type="password")
 
+    if st.button("Login"):
+        user = login_user(u, p)
+        if user:
+            st.session_state.logged_in = True
+            st.session_state.user_id = user[0]
+            st.session_state.page = "app"
+            st.rerun()
+        else:
+            st.error("Invalid credentials")
 
-def get_categorical_columns(df):
-    return df.select_dtypes(exclude=np.number).columns.tolist()
+    if st.button("Create Account"):
+        st.session_state.page = "register"
+        st.rerun()
 
+# ---------------- REGISTER PAGE ----------------
+def register_page():
+    st.title("📝 Register")
 
-# ---------- PDF REPORT ----------
+    u = st.text_input("New Username")
+    p = st.text_input("New Password", type="password")
 
-def create_pdf_report(text, filename="report.pdf"):
-    doc = SimpleDocTemplate(filename)
+    if st.button("Register"):
+        if register_user(u, p):
+            st.success("Account created. Please login.")
+        else:
+            st.error("Username already exists")
+
+    if st.button("Back to Login"):
+        st.session_state.page = "login"
+        st.rerun()
+
+# ---------------- PDF ----------------
+def create_pdf(text):
+    path = "/tmp/datagenie_ai_report.pdf"
+    doc = SimpleDocTemplate(path)
     styles = getSampleStyleSheet()
     elements = []
 
@@ -89,72 +120,15 @@ def create_pdf_report(text, filename="report.pdf"):
         elements.append(Spacer(1, 12))
 
     doc.build(elements)
+    return path
 
-
-# ---------- SESSION ----------
-
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "page" not in st.session_state:
-    st.session_state.page = "login"
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
-
-
-# ---------- LOGIN ----------
-
-def login_page():
-    st.markdown("<h1 style='text-align:center;'>🤖 DataGenie</h1>", unsafe_allow_html=True)
-    st.caption("AI-Powered Decision Support Dashboard")
-
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-
-    if st.button("Login"):
-        user = check_login(username, password)
-        if user:
-            st.session_state.logged_in = True
-            st.session_state.user_id = user[0]
-            st.session_state.page = "app"
-            st.rerun()
-        else:
-            st.error("Invalid username or password")
-
-    if st.button("Create new account"):
-        st.session_state.page = "register"
-        st.rerun()
-
-
-# ---------- REGISTER ----------
-
-def register_page():
-    st.markdown("<h1 style='text-align:center;'>📝 Register</h1>", unsafe_allow_html=True)
-
-    new_user = st.text_input("New Username")
-    new_pass = st.text_input("New Password", type="password")
-    confirm = st.text_input("Confirm Password", type="password")
-
-    if st.button("Register"):
-        if new_pass != confirm:
-            st.error("Passwords do not match")
-        elif register_user(new_user, new_pass):
-            st.success("Account created! Go to login.")
-        else:
-            st.error("Username already exists")
-
-    if st.button("Back to Login"):
-        st.session_state.page = "login"
-        st.rerun()
-
-
-# ---------- MAIN APP ----------
-
+# ---------------- MAIN APP ----------------
 def main_app():
 
     col1, col2 = st.columns([9, 1])
+
     with col1:
-        st.markdown("<h1>🤖 DataGenie</h1>", unsafe_allow_html=True)
-        st.caption("AI-Powered Decision Support Dashboard")
+        st.title("📊 DataGenie Dashboard")
 
     with col2:
         if st.button("Logout"):
@@ -162,116 +136,109 @@ def main_app():
             st.session_state.page = "login"
             st.rerun()
 
-    # ---------- SIDEBAR ----------
-    st.sidebar.title("📂 Upload Dataset")
-    uploaded_file = st.sidebar.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
+    # -------- SIDEBAR --------
+    st.sidebar.header("Upload Dataset")
+    file = st.sidebar.file_uploader("Upload Excel/CSV", type=["csv", "xlsx"])
 
-    st.sidebar.markdown("### 🕘 Previous Uploads")
+    st.sidebar.markdown("### Previous Uploads")
     uploads = get_uploads(st.session_state.user_id)
-    for f, t in uploads:
-        st.sidebar.write(f"**{f}**  \n{t}")
+    for name, time in uploads:
+        st.sidebar.caption(f"{name} — {time}")
 
     df = None
 
-    if uploaded_file:
-        if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
+    if file:
+        if file.name.endswith("csv"):
+            df = pd.read_csv(file)
         else:
-            df = pd.read_excel(uploaded_file)
+            df = pd.read_excel(file)
 
-        df = df.drop_duplicates()
-        save_upload(st.session_state.user_id, uploaded_file.name)
+        save_upload(st.session_state.user_id, file.name)
 
-    # ---------- NO FILE ----------
+    # -------- NO DATA --------
     if df is None:
-        st.markdown(
-            """
-            <div style='text-align:center;margin-top:120px;'>
-            <h3>📂 No dataset uploaded</h3>
-            <p style='color:gray;'>Upload an Excel/CSV file from the sidebar to begin.</p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        st.info("Upload an Excel or CSV file from the sidebar to begin.")
         return
 
-    # ---------- COLUMN TYPES ----------
-    numeric_cols = get_numeric_columns(df)
-    categorical_cols = get_categorical_columns(df)
+    # -------- CLEAN --------
+    df = df.drop_duplicates()
 
-    tab1, tab2, tab3 = st.tabs(["📄 Data", "📊 Dashboard", "🤖 AI Insights"])
+    # -------- TABS --------
+    tab1, tab2, tab3 = st.tabs(["Data", "Dashboard", "AI Insights"])
 
-    # ---------- DATA ----------
+    # -------- DATA TAB --------
     with tab1:
         st.dataframe(df, use_container_width=True)
 
-    # ---------- DASHBOARD ----------
+    # -------- DASHBOARD TAB --------
     with tab2:
+        st.subheader("Create Your Own Chart")
 
-        st.subheader("Bar Chart")
-        if numeric_cols and categorical_cols:
-            x_col = st.selectbox("Select Category", categorical_cols)
-            y_col = st.selectbox("Select Numeric", numeric_cols)
+        chart_type = st.selectbox(
+            "Choose chart type",
+            ["Bar Chart", "Pie Chart", "Line Chart", "Histogram"]
+        )
 
-            fig, ax = plt.subplots()
+        x_col = st.selectbox("Select X column", df.columns)
+
+        numeric_cols = df.select_dtypes(include=np.number).columns
+
+        y_col = None
+        if len(numeric_cols) > 0:
+            y_col = st.selectbox("Select Y column", numeric_cols)
+
+        fig, ax = plt.subplots()
+
+        if chart_type == "Bar Chart" and y_col:
             df.groupby(x_col)[y_col].sum().plot(kind="bar", ax=ax)
-            st.pyplot(fig)
 
-        st.subheader("Pie Chart")
-        if categorical_cols:
-            pie_col = st.selectbox("Select Column for Pie", categorical_cols, key="pie")
+        elif chart_type == "Pie Chart" and y_col:
+            df.groupby(x_col)[y_col].sum().plot(kind="pie", autopct="%1.1f%%", ax=ax)
+            ax.set_ylabel("")
 
-            fig2, ax2 = plt.subplots()
-            df[pie_col].value_counts().plot(kind="pie", autopct="%1.1f%%", ax=ax2)
-            ax2.set_ylabel("")
-            st.pyplot(fig2)
+        elif chart_type == "Line Chart" and y_col:
+            df.groupby(x_col)[y_col].sum().plot(kind="line", ax=ax)
 
-        st.subheader("Line Chart")
-        if numeric_cols:
-            line_col = st.selectbox("Select Numeric for Trend", numeric_cols, key="line")
+        elif chart_type == "Histogram":
+            df[x_col].plot(kind="hist", ax=ax)
 
-            fig3, ax3 = plt.subplots()
-            df[line_col].plot(ax=ax3)
-            st.pyplot(fig3)
+        st.pyplot(fig)
 
-    # ---------- AI INSIGHTS ----------
+    # -------- AI INSIGHTS TAB --------
     with tab3:
+        st.subheader("Automatic AI Insights")
 
-        insights = []
+        text = "Dataset Summary:\n"
+        text += f"Rows: {df.shape[0]}\nColumns: {df.shape[1]}\n\n"
 
-        insights.append(f"Dataset contains {df.shape[0]} rows and {df.shape[1]} columns.")
+        num_cols = df.select_dtypes(include=np.number).columns
 
-        for col in numeric_cols:
-            insights.append(
-                f"Column '{col}' → Mean: {df[col].mean():.2f}, Max: {df[col].max():.2f}, Min: {df[col].min():.2f}."
-            )
+        for col in num_cols:
+            text += f"Column: {col}\n"
+            text += f"Average: {df[col].mean():.2f}\n"
+            text += f"Max: {df[col].max():.2f}\n"
+            text += f"Min: {df[col].min():.2f}\n\n"
 
-        if categorical_cols:
-            for col in categorical_cols[:2]:
-                top = df[col].value_counts().idxmax()
-                insights.append(f"Most common value in '{col}' is '{top}'.")
+        st.text(text)
 
-        # Prediction using first numeric column
-        if numeric_cols:
-            col = numeric_cols[0]
+        if len(num_cols) > 0:
+            target = st.selectbox("Select column for prediction", num_cols)
+
             X = np.arange(len(df)).reshape(-1, 1)
-            y = df[col].values
-            model = LinearRegression().fit(X, y)
+            y = df[target].values
+
+            model = LinearRegression()
+            model.fit(X, y)
+
             pred = model.predict([[len(df)]])[0]
-            insights.append(f"Predicted next value for '{col}' is approximately {pred:.2f}.")
+            st.success(f"Next predicted value for {target}: {pred:.2f}")
 
-        full_text = "\n".join(insights)
+        if st.button("Download AI Report PDF"):
+            pdf = create_pdf(text)
+            with open(pdf, "rb") as f:
+                st.download_button("Download PDF", f, "AI_Report.pdf")
 
-        st.write(full_text)
-
-        if st.button("📄 Download AI Report as PDF"):
-            create_pdf_report(full_text)
-            with open("report.pdf", "rb") as f:
-                st.download_button("Download PDF", f, file_name="DataGenie_Report.pdf")
-
-
-# ---------- ROUTER ----------
-
+# ---------------- ROUTER ----------------
 if not st.session_state.logged_in:
     if st.session_state.page == "login":
         login_page()
