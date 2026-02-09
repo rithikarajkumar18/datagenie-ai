@@ -200,9 +200,12 @@ def main_app():
             df.groupby(x_col)[y_col].sum().plot(kind="line", ax=ax)
 
         elif chart_type == "Histogram":
-            df[x_col].plot(kind="hist", ax=ax)
-
-        st.pyplot(fig)
+            # Histogram only works for numeric columns
+                    if pd.api.types.is_numeric_dtype(df[x_col]):
+                        df[x_col].plot(kind="hist", ax=ax)
+                        st.pyplot(fig)
+                    else:
+                        st.warning("Histogram requires a numeric column. Please choose a numeric field.")
 
     # -------- AI INSIGHTS TAB --------
     with tab3:
