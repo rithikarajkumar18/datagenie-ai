@@ -318,10 +318,19 @@ Focus marketing and inventory in the {top_region} region to increase revenue.
                 else:
                     st.info("Try asking about total, average, region performance, or prediction.")
     else:
-        # Prompt to upload file
-        if st.button("⬅️ Upload an Excel/CSV file from the sidebar to begin"):
-            st.sidebar.info("📂 Please upload your Excel/CSV file here 👆")
-        st.markdown("<p style='color: gray; font-size: 12px;'>Click the message to see upload instructions in the sidebar.</p>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style='text-align:center; margin-top:120px;'>
+            <h3>📂 No dataset uploaded</h3>
+            <p style='color:gray;'>Click the button below and upload your Excel/CSV file from the sidebar.</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    if st.button("⬅️ Upload an Excel/CSV file from the sidebar to begin", use_container_width=True):
+        st.sidebar.success("👈 Please use the sidebar to upload your file")
+
 
 # ---------- ROUTER ----------
 if not st.session_state.logged_in:
