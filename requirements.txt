@@ -1,11 +1,7 @@
-mysql-connector-python
 streamlit
 pandas
-matplotlib
-reportlab
-scikit-learn
-openpyxl
 numpy
-
-
-
+matplotlib
+scikit-learn
+reportlab
+openpyxl
