@@ -277,9 +277,9 @@ Focus marketing and inventory in the {top_region} region to increase revenue.
     else:
         
         if df is None:
-        if st.button("⬅️ Upload an Excel file from the sidebar to begin."):
+          if st.button("⬅️ Upload an Excel file from the sidebar to begin."):
             st.sidebar.info("📂Please upload your Excel/CSV file here 👆")
-        st.markdown(
+          st.markdown(
              "<p style='color: gray; font-size: 12px;'>Click the message to see upload instructions in the sidebar.</p>",
               unsafe_allow_html=True
              )
