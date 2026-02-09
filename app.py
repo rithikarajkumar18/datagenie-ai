@@ -317,19 +317,20 @@ Focus marketing and inventory in the {top_region} region to increase revenue.
                     st.success(f"Predicted next sales value is {next_sales:,.2f}.")
                 else:
                     st.info("Try asking about total, average, region performance, or prediction.")
-                else:
-                    st.markdown(
-                                 """
-                                      <div style='text-align:center; margin-top:120px;'>
-                                      <h3>📂 No dataset uploaded</h3>
-                                      <p style='color:gray;'>Click the button below and upload your Excel/CSV file from the sidebar.</p>
-                                      </div>
-                                            """,
-                                    unsafe_allow_html=True
-                               )
+                    # ---------- NO FILE UPLOADED ----------
+    if df is None:
+        st.markdown(
+            """
+            <div style='text-align:center; margin-top:120px;'>
+                <h3>📂 No dataset uploaded</h3>
+                <p style='color:gray;'>Click the button below and upload your Excel/CSV file from the sidebar.</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-                if st.button("⬅️ Upload an Excel/CSV file from the sidebar to begin", use_container_width=True):
-                   st.sidebar.success("👈 Please use the sidebar to upload your file")
+        if st.button("⬅️ Upload an Excel/CSV file from the sidebar to begin", use_container_width=True):
+            st.sidebar.success("👈 Please use the sidebar to upload your file")
 
 
 # ---------- ROUTER ----------
