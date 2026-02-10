@@ -274,9 +274,9 @@ def main_app():
 
             st.success(f"Predicted next {col}: {pred:,.2f}")
 
-        fig = st.session_state.get("last_fig", None)
+         fig = st.session_state.get("last_fig", None)
 
-        if st.button("Download Full Report (Dashboard + AI)"):
+         if st.button("Download Full Report (Dashboard + AI)"):
             pdf_path = create_full_pdf(insight_text, fig)
             with open(pdf_path, "rb") as f:
                 st.download_button("Download PDF", f, "DataGenie_Report.pdf")
