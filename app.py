@@ -208,7 +208,7 @@ def main_app():
 
     df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith("csv") else pd.read_excel(uploaded_file)
 
-    df = clean_data(df)
+    df = clean_data_ui(df)
     save_upload(st.session_state.user_id, uploaded_file.name)
 
     tab1, tab2, tab3, tab4 = st.tabs(["📄 Data Preview", "📊 Dashboard", "🤖 AI Insights", "💬 Chatbot"])
