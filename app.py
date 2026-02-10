@@ -1,24 +1,30 @@
-# DataGenie Advanced App with User-Selectable Charts
-
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import numpy as np
-import sqlite3
-from sklearn.linear_model import LinearRegression
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
+from sklearn.linear_model import LinearRegression
+import numpy as np
+import sqlite3
+import nltk
+from nltk.tokenize import word_tokenize
+
+# Download tokenizer once
+try:
+    nltk.data.find("tokenizers/punkt")
+except LookupError:
+    nltk.download("punkt")
 
 st.set_page_config(page_title="DataGenie AI", layout="wide")
 
-# ---------------- DATABASE ----------------
+# ---------- DATABASE ----------
 def get_conn():
     return sqlite3.connect("datagenie.db", check_same_thread=False)
 
 conn = get_conn()
-cur = conn.cursor()
+cursor = conn.cursor()
 
-cur.execute("""
+cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE,
@@ -26,7 +32,7 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
-cur.execute("""
+cursor.execute("""
 CREATE TABLE IF NOT EXISTS uploads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
@@ -34,10 +40,9 @@ CREATE TABLE IF NOT EXISTS uploads (
     upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
 """)
-
 conn.commit()
 
-# ---------------- SESSION ----------------
+# ---------- SESSION ----------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "page" not in st.session_state:
@@ -45,10 +50,10 @@ if "page" not in st.session_state:
 if "user_id" not in st.session_state:
     st.session_state.user_id = None
 
-# ---------------- AUTH FUNCTIONS ----------------
+# ---------- AUTH FUNCTIONS ----------
 def register_user(u, p):
     try:
-        cur.execute("INSERT INTO users (username, password) VALUES (?, ?)", (u, p))
+        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (u, p))
         conn.commit()
         return True
     except:
@@ -56,23 +61,22 @@ def register_user(u, p):
 
 
 def login_user(u, p):
-    cur.execute("SELECT id FROM users WHERE username=? AND password=?", (u, p))
-    return cur.fetchone()
+    cursor.execute("SELECT id FROM users WHERE username=? AND password=?", (u, p))
+    return cursor.fetchone()
 
 
-def save_upload(uid, name):
-    cur.execute("INSERT INTO uploads (user_id, filename) VALUES (?, ?)", (uid, name))
+def save_upload(uid, fname):
+    cursor.execute("INSERT INTO uploads (user_id, filename) VALUES (?, ?)", (uid, fname))
     conn.commit()
 
 
 def get_uploads(uid):
-    cur.execute("SELECT filename, upload_time FROM uploads WHERE user_id=? ORDER BY upload_time DESC", (uid,))
-    return cur.fetchall()
+    cursor.execute("SELECT filename, upload_time FROM uploads WHERE user_id=? ORDER BY upload_time DESC", (uid,))
+    return cursor.fetchall()
 
-# ---------------- LOGIN PAGE ----------------
+# ---------- LOGIN PAGE ----------
 def login_page():
-    st.title("🤖 DataGenie AI")
-    st.subheader("Login")
+    st.title("🤖 DataGenie Login")
 
     u = st.text_input("Username")
     p = st.text_input("Password", type="password")
@@ -85,163 +89,149 @@ def login_page():
             st.session_state.page = "app"
             st.rerun()
         else:
-            st.error("Invalid credentials")
+            st.error("Invalid login")
 
-    if st.button("Create Account"):
+    if st.button("Register"):
         st.session_state.page = "register"
         st.rerun()
 
-# ---------------- REGISTER PAGE ----------------
+# ---------- REGISTER ----------
 def register_page():
     st.title("📝 Register")
 
     u = st.text_input("New Username")
     p = st.text_input("New Password", type="password")
 
-    if st.button("Register"):
+    if st.button("Create Account"):
         if register_user(u, p):
-            st.success("Account created. Please login.")
+            st.success("Account created")
+            st.session_state.page = "login"
+            st.rerun()
         else:
-            st.error("Username already exists")
+            st.error("Username exists")
 
-    if st.button("Back to Login"):
+# ---------- NLP CHATBOT ----------
+def nlp_chatbot(question, df):
+    tokens = word_tokenize(question.lower())
+
+    numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
+
+    if "total" in tokens:
+        col = numeric_cols[0] if numeric_cols else None
+        if col:
+            return f"Total {col} is {df[col].sum():,.2f}"
+
+    if "average" in tokens or "mean" in tokens:
+        col = numeric_cols[0] if numeric_cols else None
+        if col:
+            return f"Average {col} is {df[col].mean():,.2f}"
+
+    if "max" in tokens or "highest" in tokens:
+        col = numeric_cols[0] if numeric_cols else None
+        if col:
+            return f"Highest {col} is {df[col].max():,.2f}"
+
+    if "predict" in tokens and numeric_cols:
+        col = numeric_cols[0]
+        X = np.arange(len(df)).reshape(-1, 1)
+        y = df[col].values
+        model = LinearRegression().fit(X, y)
+        pred = model.predict([[len(df)]])[0]
+        return f"Next predicted {col} is {pred:,.2f}"
+
+    return "Sorry, I couldn't understand. Try asking total, average, max, or prediction."
+
+# ---------- MAIN APP ----------
+def main_app():
+    st.title("📊 DataGenie Dashboard")
+
+    if st.button("Logout"):
+        st.session_state.logged_in = False
         st.session_state.page = "login"
         st.rerun()
 
-# ---------------- PDF ----------------
-def create_pdf(text):
-    path = "/tmp/datagenie_ai_report.pdf"
-    doc = SimpleDocTemplate(path)
-    styles = getSampleStyleSheet()
-    elements = []
-
-    for line in text.split("\n"):
-        elements.append(Paragraph(line, styles["Normal"]))
-        elements.append(Spacer(1, 12))
-
-    doc.build(elements)
-    return path
-
-# ---------------- MAIN APP ----------------
-def main_app():
-
-    col1, col2 = st.columns([9, 1])
-
-    with col1:
-        st.title("📊 DataGenie Dashboard")
-
-    with col2:
-        if st.button("Logout"):
-            st.session_state.logged_in = False
-            st.session_state.page = "login"
-            st.rerun()
-
-    # -------- SIDEBAR --------
     st.sidebar.header("Upload Dataset")
-    file = st.sidebar.file_uploader("Upload Excel/CSV", type=["csv", "xlsx"])
+    file = st.sidebar.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
 
-    st.sidebar.markdown("### Previous Uploads")
-    uploads = get_uploads(st.session_state.user_id)
-    for name, time in uploads:
-        st.sidebar.caption(f"{name} — {time}")
+    # Upload history
+    st.sidebar.subheader("📜 Upload History")
+    for f, t in get_uploads(st.session_state.user_id):
+        st.sidebar.write(f"{f} — {t}")
 
-    df = None
-
-    if file:
-        if file.name.endswith("csv"):
-            df = pd.read_csv(file)
-        else:
-            df = pd.read_excel(file)
-
-        save_upload(st.session_state.user_id, file.name)
-
-    # -------- NO DATA --------
-    if df is None:
-        st.info("Upload an Excel or CSV file from the sidebar to begin.")
+    if file is None:
+        st.info("Upload an Excel/CSV file from the sidebar to begin.")
         return
 
-    # -------- CLEAN --------
-    df = df.drop_duplicates()
+    # Read file
+    df = pd.read_csv(file) if file.name.endswith("csv") else pd.read_excel(file)
+    save_upload(st.session_state.user_id, file.name)
 
-    # -------- TABS --------
-    tab1, tab2, tab3 = st.tabs(["Data", "Dashboard", "AI Insights"])
+    st.subheader("Dataset Preview")
+    st.dataframe(df)
 
-    # -------- DATA TAB --------
-    with tab1:
-        st.dataframe(df, use_container_width=True)
+    # ---------- CHART BUILDER ----------
+    st.subheader("📈 Build Your Chart")
 
-    # -------- DASHBOARD TAB --------
-    with tab2:
-        st.subheader("Create Your Own Chart")
+    x_col = st.selectbox("Select X column", df.columns)
+    y_col = st.selectbox("Select Y column", df.select_dtypes(include=np.number).columns)
+    chart_type = st.selectbox("Chart Type", ["Bar", "Line", "Pie", "Histogram"])
 
-        chart_type = st.selectbox(
-            "Choose chart type",
-            ["Bar Chart", "Pie Chart", "Line Chart", "Histogram"]
-        )
+    fig, ax = plt.subplots()
 
-        x_col = st.selectbox("Select X column", df.columns)
+    if chart_type == "Bar":
+        df.groupby(x_col)[y_col].sum().plot(kind="bar", ax=ax)
 
-        numeric_cols = df.select_dtypes(include=np.number).columns
+    elif chart_type == "Line":
+        df.groupby(x_col)[y_col].sum().plot(kind="line", ax=ax)
 
-        y_col = None
-        if len(numeric_cols) > 0:
-            y_col = st.selectbox("Select Y column", numeric_cols)
+    elif chart_type == "Pie":
+        df.groupby(x_col)[y_col].sum().plot(kind="pie", autopct="%1.1f%%", ax=ax)
+        ax.set_ylabel("")
 
-        fig, ax = plt.subplots()
+    elif chart_type == "Histogram":
+        if pd.api.types.is_numeric_dtype(df[y_col]):
+            df[y_col].plot(kind="hist", ax=ax)
+        else:
+            st.warning("Histogram needs numeric column")
 
-        if chart_type == "Bar Chart" and y_col:
-            df.groupby(x_col)[y_col].sum().plot(kind="bar", ax=ax)
+    st.pyplot(fig)
 
-        elif chart_type == "Pie Chart" and y_col:
-            df.groupby(x_col)[y_col].sum().plot(kind="pie", autopct="%1.1f%%", ax=ax)
-            ax.set_ylabel("")
+    # ---------- AI INSIGHTS ----------
+    st.subheader("🤖 AI Insights")
 
-        elif chart_type == "Line Chart" and y_col:
-            df.groupby(x_col)[y_col].sum().plot(kind="line", ax=ax)
+    insights = []
+    for col in df.select_dtypes(include=np.number).columns:
+        insights.append(f"{col} → Total: {df[col].sum():,.2f}, Avg: {df[col].mean():,.2f}")
 
-        elif chart_type == "Histogram":
-            # Histogram only works for numeric columns
-                    if pd.api.types.is_numeric_dtype(df[x_col]):
-                        df[x_col].plot(kind="hist", ax=ax)
-                        st.pyplot(fig)
-                    else:
-                        st.warning("Histogram requires a numeric column. Please choose a numeric field.")
+    insight_text = "\n".join(insights)
+    st.text(insight_text)
 
-    # -------- AI INSIGHTS TAB --------
-    with tab3:
-        st.subheader("Automatic AI Insights")
+    # ---------- PDF ----------
+    def create_pdf(text):
+        path = "/tmp/report.pdf"
+        doc = SimpleDocTemplate(path)
+        styles = getSampleStyleSheet()
+        elems = []
+        for line in text.split("\n"):
+            elems.append(Paragraph(line, styles["Normal"]))
+            elems.append(Spacer(1, 12))
+        doc.build(elems)
+        return path
 
-        text = "Dataset Summary:\n"
-        text += f"Rows: {df.shape[0]}\nColumns: {df.shape[1]}\n\n"
+    if st.button("Download AI Report PDF"):
+        pdf = create_pdf(insight_text)
+        with open(pdf, "rb") as f:
+            st.download_button("Download PDF", f, "AI_Report.pdf")
 
-        num_cols = df.select_dtypes(include=np.number).columns
+    # ---------- NLP CHAT ----------
+    st.subheader("💬 NLP Chatbot")
 
-        for col in num_cols:
-            text += f"Column: {col}\n"
-            text += f"Average: {df[col].mean():.2f}\n"
-            text += f"Max: {df[col].max():.2f}\n"
-            text += f"Min: {df[col].min():.2f}\n\n"
+    q = st.text_input("Ask about your data")
+    if q:
+        ans = nlp_chatbot(q, df)
+        st.success(ans)
 
-        st.text(text)
-
-        if len(num_cols) > 0:
-            target = st.selectbox("Select column for prediction", num_cols)
-
-            X = np.arange(len(df)).reshape(-1, 1)
-            y = df[target].values
-
-            model = LinearRegression()
-            model.fit(X, y)
-
-            pred = model.predict([[len(df)]])[0]
-            st.success(f"Next predicted value for {target}: {pred:.2f}")
-
-        if st.button("Download AI Report PDF"):
-            pdf = create_pdf(text)
-            with open(pdf, "rb") as f:
-                st.download_button("Download PDF", f, "AI_Report.pdf")
-
-# ---------------- ROUTER ----------------
+# ---------- ROUTER ----------
 if not st.session_state.logged_in:
     if st.session_state.page == "login":
         login_page()
