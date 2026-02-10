@@ -1,13 +1,14 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
 from sklearn.linear_model import LinearRegression
 import numpy as np
 import sqlite3
 import nltk
 from nltk.tokenize import word_tokenize
+import os
 
 # ---------- NLTK SETUP ----------
 try:
@@ -47,7 +48,7 @@ if "page" not in st.session_state:
 if "user_id" not in st.session_state:
     st.session_state.user_id = None
 
-# ---------- AUTH FUNCTIONS ----------
+# ---------- AUTH ----------
 def register_user(username, password):
     try:
         cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
@@ -103,8 +104,7 @@ def clean_data_ui(df):
 
     return df
 
-
-# ---------- NLP CHATBOT ----------
+# ---------- NLP ----------
 def nlp_chatbot(question, df):
     tokens = word_tokenize(question.lower())
     numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
@@ -131,7 +131,7 @@ def nlp_chatbot(question, df):
 
     return "Try asking about total, average, highest, or prediction."
 
-# ---------- LOGIN PAGE ----------
+# ---------- LOGIN ----------
 def login_page():
     st.title("🤖 DataGenie Login")
 
@@ -152,7 +152,7 @@ def login_page():
         st.session_state.page = "register"
         st.rerun()
 
-# ---------- REGISTER PAGE ----------
+# ---------- REGISTER ----------
 def register_page():
     st.title("📝 Register")
 
@@ -167,7 +167,26 @@ def register_page():
         else:
             st.error("Username already exists")
 
-# ---------- MAIN APP ----------
+# ---------- PDF ----------
+def create_full_pdf(text, fig):
+    path = "/tmp/datagenie_full_report.pdf"
+    doc = SimpleDocTemplate(path)
+    styles = getSampleStyleSheet()
+    elems = []
+
+    for line in text.split("\n"):
+        elems.append(Paragraph(line, styles["Normal"]))
+        elems.append(Spacer(1, 12))
+
+    if fig:
+        img_path = "/tmp/chart.png"
+        fig.savefig(img_path)
+        elems.append(Image(img_path, width=400, height=300))
+
+    doc.build(elems)
+    return path
+
+# ---------- MAIN ----------
 def main_app():
     st.title("📊 DataGenie Dashboard")
 
@@ -179,7 +198,6 @@ def main_app():
     st.sidebar.header("Upload Dataset")
     uploaded_file = st.sidebar.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
 
-    # Upload history
     st.sidebar.subheader("📜 Upload History")
     for fname, time in get_uploads(st.session_state.user_id):
         st.sidebar.write(f"{fname} — {time}")
@@ -188,38 +206,23 @@ def main_app():
         st.info("Upload an Excel/CSV file from the sidebar to begin.")
         return
 
-    # Read file
     df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith("csv") else pd.read_excel(uploaded_file)
 
-    # Clean data (hidden from UI)
     df = clean_data(df)
-
-    # Save upload
     save_upload(st.session_state.user_id, uploaded_file.name)
 
-    # ---------- TABS ----------
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📄 Data Preview",
-        "📊 Dashboard",
-        "🤖 AI Insights",
-        "💬 Chatbot",
-    ])
+    tab1, tab2, tab3, tab4 = st.tabs(["📄 Data Preview", "📊 Dashboard", "🤖 AI Insights", "💬 Chatbot"])
 
-    # ---------- TAB 1: DATA ----------
+    # ---------- TAB 1 ----------
     with tab1:
-        st.subheader("Cleaned Dataset")
         st.dataframe(df, use_container_width=True)
 
-    # ---------- TAB 2: DASHBOARD ----------
+    # ---------- TAB 2 ----------
     with tab2:
-        st.subheader("Create Your Chart")
-
         x_col = st.selectbox("Select X column", df.columns)
         numeric_cols = df.select_dtypes(include=np.number).columns
 
-        if len(numeric_cols) == 0:
-            st.warning("No numeric columns available for charts.")
-        else:
+        if len(numeric_cols) > 0:
             y_col = st.selectbox("Select Y column", numeric_cols)
             chart_type = st.selectbox("Chart Type", ["Bar", "Line", "Pie", "Histogram"])
 
@@ -227,115 +230,60 @@ def main_app():
 
             if chart_type == "Bar":
                 df.groupby(x_col)[y_col].sum().plot(kind="bar", ax=ax)
-
             elif chart_type == "Line":
                 df.groupby(x_col)[y_col].sum().plot(kind="line", ax=ax)
-
             elif chart_type == "Pie":
                 df.groupby(x_col)[y_col].sum().plot(kind="pie", autopct="%1.1f%%", ax=ax)
                 ax.set_ylabel("")
-
             elif chart_type == "Histogram":
                 df[y_col].plot(kind="hist", ax=ax)
 
             st.pyplot(fig)
             st.session_state["last_fig"] = fig
 
-    # ---------- TAB 3: AI INSIGHTS ----------
+    # ---------- TAB 3 ----------
     with tab3:
-        st.subheader("Automatic Data Insights")
-
         important_keywords = ["sales", "profit", "revenue", "amount", "quantity", "cost"]
 
         important_cols = [
-                          col for col in df.select_dtypes(include=np.number).columns
-        if any(key in col.lower() for key in important_keywords)
-                        ]
+            col for col in df.select_dtypes(include=np.number).columns
+            if any(key in col.lower() for key in important_keywords)
+        ]
 
         insights = []
 
         if important_cols:
-           for col in important_cols:
-                 insights.append(
-                       f"📊 {col} Analysis:\n"
-                       f"• Total {col}: {df[col].sum():,.2f}\n"
-                       f"• Average {col}: {df[col].mean():,.2f}\n"
-                       f"• Highest {col}: {df[col].max():,.2f}\n"
-                         )
+            for col in important_cols:
+                insights.append(
+                    f"{col} → Total: {df[col].sum():,.2f}, Avg: {df[col].mean():,.2f}, Max: {df[col].max():,.2f}"
+                )
         else:
-           insights.append("No major business metric columns (Sales/Profit/Revenue) found.")
+            insights.append("No major business metric columns found.")
 
-           insight_text = "\n".join(insights)
-           st.text(insight_text)
+        insight_text = "\n".join(insights)
+        st.text(insight_text)
 
-        # Prediction on first numeric column
         numeric_cols = df.select_dtypes(include=np.number).columns
-
         if len(numeric_cols) > 0:
             col = numeric_cols[0]
 
-    X = np.arange(len(df)).reshape(-1, 1)
-    y = df[col].values
+            X = np.arange(len(df)).reshape(-1, 1)
+            y = df[col].values
+            model = LinearRegression().fit(X, y)
+            pred = model.predict([[len(df)]])[0]
 
-    model = LinearRegression().fit(X, y)
-    pred = model.predict([[len(df)]])[0]
-
-    current_avg = df[col].mean()
-    growth = pred - current_avg
-
-    st.markdown("### 📈 AI Prediction Summary")
-
-    st.success(f"Predicted next {col}: {pred:,.2f}")
-
-    # --- Smart interpretation ---
-    if growth > 0:
-        trend_text = f"{col} shows an increasing trend. Future performance is expected to improve."
-    elif growth < 0:
-        trend_text = f"{col} shows a decreasing trend. Attention may be required to prevent decline."
-    else:
-        trend_text = f"{col} appears stable with no major change expected."
-
-    summary = f"""
-🔎 **Trend Analysis for {col}**
-
-• Current average {col}: **{current_avg:,.2f}**  
-• Predicted next value: **{pred:,.2f}**
-
-📊 **Interpretation:**  
-{trend_text}
-
-💡 **Recommendation:**  
-Focus on strategies that improve **{col} growth**, monitor performance regularly,  
-and take early action if negative trends appear.
-"""
-
-    st.info(summary)
+            st.success(f"Predicted next {col}: {pred:,.2f}")
 
         fig = st.session_state.get("last_fig", None)
 
-
-        # PDF download
-        def create_pdf(text):
-            path = "/tmp/datagenie_report.pdf"
-            doc = SimpleDocTemplate(path)
-            styles = getSampleStyleSheet()
-            elems = []
-            for line in text.split("\n"):
-                elems.append(Paragraph(line, styles["Normal"]))
-                elems.append(Spacer(1, 12))
-            doc.build(elems)
-            return path
         if st.button("Download Full Report (Dashboard + AI)"):
-           pdf_path = create_full_pdf(insight_text, fig)
+            pdf_path = create_full_pdf(insight_text, fig)
+            with open(pdf_path, "rb") as f:
+                st.download_button("Download PDF", f, "DataGenie_Report.pdf")
 
-        with open(pdf_path, "rb") as f:
-           st.download_button("Download PDF", f, "DataGenie_Full_Report.pdf")
-
-                   
-    # ---------- TAB 4: NLP CHATBOT ----------
+    # ---------- TAB 4 ----------
     with tab4:
-        st.subheader("Ask Questions About Your Data")
-        question = st.text_input("Type your question")
+        question = st.text_input("Ask your question")
 
         if question:
             answer = nlp_chatbot(question, df)
