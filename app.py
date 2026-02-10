@@ -71,11 +71,38 @@ def get_uploads(user_id):
     cursor.execute("SELECT filename, upload_time FROM uploads WHERE user_id=? ORDER BY upload_time DESC", (user_id,))
     return cursor.fetchall()
 
-# ---------- DATA CLEANING ----------
-def clean_data(df):
-    df = df.dropna()
-    df = df.drop_duplicates()
+# ---------- DATA CLEANING (USER CONTROLLED) ----------
+def clean_data_ui(df):
+    st.subheader("🧹 Data Cleaning Options")
+
+    original_shape = df.shape
+
+    remove_empty_rows = st.checkbox("Remove rows with empty values")
+    remove_empty_cols = st.checkbox("Remove columns with empty values")
+    remove_duplicates = st.checkbox("Remove duplicate rows")
+    fill_missing = st.checkbox("Fill missing numeric values with mean")
+
+    if st.button("Apply Cleaning"):
+        if remove_empty_rows:
+            df = df.dropna(axis=0)
+
+        if remove_empty_cols:
+            df = df.dropna(axis=1)
+
+        if remove_duplicates:
+            df = df.drop_duplicates()
+
+        if fill_missing:
+            for col in df.select_dtypes(include=np.number).columns:
+                df[col] = df[col].fillna(df[col].mean())
+
+        st.success("Cleaning applied successfully!")
+
+        st.write("**Rows before cleaning:**", original_shape[0])
+        st.write("**Rows after cleaning:**", df.shape[0])
+
     return df
+
 
 # ---------- NLP CHATBOT ----------
 def nlp_chatbot(question, df):
@@ -212,29 +239,80 @@ def main_app():
                 df[y_col].plot(kind="hist", ax=ax)
 
             st.pyplot(fig)
+            st.session_state["last_fig"] = fig
 
     # ---------- TAB 3: AI INSIGHTS ----------
     with tab3:
         st.subheader("Automatic Data Insights")
 
-        insights = []
-        for col in df.select_dtypes(include=np.number).columns:
-            insights.append(
-                f"{col} → Total: {df[col].sum():,.2f}, Average: {df[col].mean():,.2f}, Max: {df[col].max():,.2f}"
-            )
+        important_keywords = ["sales", "profit", "revenue", "amount", "quantity", "cost"]
 
-        insight_text = "\n".join(insights)
-        st.text(insight_text)
+        important_cols = [
+                          col for col in df.select_dtypes(include=np.number).columns
+        if any(key in col.lower() for key in important_keywords)
+                        ]
+
+        insights = []
+
+        if important_cols:
+           for col in important_cols:
+                 insights.append(
+                       f"📊 {col} Analysis:\n"
+                       f"• Total {col}: {df[col].sum():,.2f}\n"
+                       f"• Average {col}: {df[col].mean():,.2f}\n"
+                       f"• Highest {col}: {df[col].max():,.2f}\n"
+                         )
+        else:
+           insights.append("No major business metric columns (Sales/Profit/Revenue) found.")
+
+           insight_text = "\n".join(insights)
+           st.text(insight_text)
 
         # Prediction on first numeric column
         numeric_cols = df.select_dtypes(include=np.number).columns
+
         if len(numeric_cols) > 0:
             col = numeric_cols[0]
-            X = np.arange(len(df)).reshape(-1, 1)
-            y = df[col].values
-            model = LinearRegression().fit(X, y)
-            pred = model.predict([[len(df)]])[0]
-            st.success(f"Next predicted {col}: {pred:,.2f}")
+
+    X = np.arange(len(df)).reshape(-1, 1)
+    y = df[col].values
+
+    model = LinearRegression().fit(X, y)
+    pred = model.predict([[len(df)]])[0]
+
+    current_avg = df[col].mean()
+    growth = pred - current_avg
+
+    st.markdown("### 📈 AI Prediction Summary")
+
+    st.success(f"Predicted next {col}: {pred:,.2f}")
+
+    # --- Smart interpretation ---
+    if growth > 0:
+        trend_text = f"{col} shows an increasing trend. Future performance is expected to improve."
+    elif growth < 0:
+        trend_text = f"{col} shows a decreasing trend. Attention may be required to prevent decline."
+    else:
+        trend_text = f"{col} appears stable with no major change expected."
+
+    summary = f"""
+🔎 **Trend Analysis for {col}**
+
+• Current average {col}: **{current_avg:,.2f}**  
+• Predicted next value: **{pred:,.2f}**
+
+📊 **Interpretation:**  
+{trend_text}
+
+💡 **Recommendation:**  
+Focus on strategies that improve **{col} growth**, monitor performance regularly,  
+and take early action if negative trends appear.
+"""
+
+    st.info(summary)
+
+        fig = st.session_state.get("last_fig", None)
+
 
         # PDF download
         def create_pdf(text):
@@ -247,12 +325,13 @@ def main_app():
                 elems.append(Spacer(1, 12))
             doc.build(elems)
             return path
+        if st.button("Download Full Report (Dashboard + AI)"):
+           pdf_path = create_full_pdf(insight_text, fig)
 
-        if st.button("Download AI Insights PDF"):
-            pdf_path = create_pdf(insight_text)
-            with open(pdf_path, "rb") as f:
-                st.download_button("Download PDF", f, "AI_Insights.pdf")
+        with open(pdf_path, "rb") as f:
+           st.download_button("Download PDF", f, "DataGenie_Full_Report.pdf")
 
+                   
     # ---------- TAB 4: NLP CHATBOT ----------
     with tab4:
         st.subheader("Ask Questions About Your Data")
