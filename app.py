@@ -6,15 +6,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from sklearn.linear_model import LinearRegression
 import numpy as np
 import sqlite3
-import nltk
-from nltk.tokenize import word_tokenize
 import os
-
-# ---------- NLTK SETUP ----------
-try:
-    nltk.data.find("tokenizers/punkt")
-except LookupError:
-    nltk.download("punkt")
 
 st.set_page_config(page_title="DataGenie AI", layout="wide")
 
@@ -108,7 +100,7 @@ def clean_data_ui(df):
 
 # ---------- NLP ----------
 def nlp_chatbot(question, df):
-    tokens = word_tokenize(question.lower())
+    tokens = question.lower().split()
     numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
 
     if "total" in tokens and numeric_cols:
@@ -213,14 +205,23 @@ def main_app():
     df = clean_data_ui(df)
     save_upload(st.session_state.user_id, uploaded_file.name)
 
-    tab1, tab2, tab3, tab4 = st.tabs(["📄 Data Preview", "📊 Dashboard", "🤖 AI Insights", "💬 Chatbot"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "🧹 Data Cleaning",
+    "📄 Data Preview",
+    "📊 Dashboard",
+    "🤖 AI Insights",
+    "💬 Chatbot",
+    ])
 
     # ---------- TAB 1 ----------
     with tab1:
         st.dataframe(df, use_container_width=True)
+        df = clean_data_ui(df)
 
     # ---------- TAB 2 ----------
     with tab2:
+        st.subheader("Cleaned Dataset")
+        st.dataframe(df, use_container_width=True)
         x_col = st.selectbox("Select X column", df.columns)
         numeric_cols = df.select_dtypes(include=np.number).columns
 
