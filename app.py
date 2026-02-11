@@ -1,35 +1,50 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
-from reportlab.lib.styles import getSampleStyleSheet
-from sklearn.linear_model import LinearRegression
 import numpy as np
 import sqlite3
-import os
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+from sklearn.linear_model import LinearRegression
+import nltk
+from nltk.tokenize import word_tokenize
+import tempfile
 
+# ---------- NLTK SETUP ----------
+try:
+    nltk.data.find("tokenizers/punkt")
+except LookupError:
+    nltk.download("punkt")
+
+# ---------- PAGE CONFIG ----------
 st.set_page_config(page_title="DataGenie AI", layout="wide")
 
 # ---------- DATABASE ----------
-conn = sqlite3.connect("/mount/src/datagenie-ai/datagenie.db", check_same_thread=False)
+conn = sqlite3.connect("datagenie.db", check_same_thread=False)
 cursor = conn.cursor()
 
-cursor.execute("""
+cursor.execute(
+    """
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE,
     password TEXT
 )
-""")
+"""
+)
 
-cursor.execute("""
+cursor.execute(
+    """
 CREATE TABLE IF NOT EXISTS uploads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
     filename TEXT,
     upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
-""")
+"""
+)
 conn.commit()
 
 # ---------- SESSION ----------
@@ -40,45 +55,55 @@ if "page" not in st.session_state:
 if "user_id" not in st.session_state:
     st.session_state.user_id = None
 
-# ---------- AUTH ----------
+# ---------- AUTH FUNCTIONS ----------
+
 def register_user(username, password):
     try:
-        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
+        cursor.execute(
+            "INSERT INTO users (username, password) VALUES (?, ?)",
+            (username, password),
+        )
         conn.commit()
         return True
-    except Exception as e:
-        st.error(f"Register error: {e}")
+    except:
         return False
-    
 
 
 def login_user(username, password):
-    cursor.execute("SELECT id FROM users WHERE username=? AND password=?", (username, password))
+    cursor.execute(
+        "SELECT id FROM users WHERE username=? AND password=?",
+        (username, password),
+    )
     return cursor.fetchone()
 
 
 def save_upload(user_id, filename):
-    cursor.execute("INSERT INTO uploads (user_id, filename) VALUES (?, ?)", (user_id, filename))
+    cursor.execute(
+        "INSERT INTO uploads (user_id, filename) VALUES (?, ?)",
+        (user_id, filename),
+    )
     conn.commit()
 
 
 def get_uploads(user_id):
-    cursor.execute("SELECT filename, upload_time FROM uploads WHERE user_id=? ORDER BY upload_time DESC", (user_id,))
+    cursor.execute(
+        "SELECT filename, upload_time FROM uploads WHERE user_id=? ORDER BY upload_time DESC",
+        (user_id,),
+    )
     return cursor.fetchall()
 
-# ---------- DATA CLEANING (USER CONTROLLED) ----------
+
+# ---------- DATA CLEANING UI ----------
+
 def clean_data_ui(df):
     st.subheader("🧹 Data Cleaning Options")
-
-    original_shape = df.shape
 
     remove_empty_rows = st.checkbox("Remove rows with empty values", key="clean_rows")
     remove_empty_cols = st.checkbox("Remove columns with empty values", key="clean_cols")
     remove_duplicates = st.checkbox("Remove duplicate rows", key="clean_dup")
     fill_missing = st.checkbox("Fill missing numeric values with mean", key="clean_fill")
-    
 
-    if st.button("Apply Cleaning", key="apply_cleaning"):
+    if st.button("Apply Cleaning", key="apply_clean"):
         if remove_empty_rows:
             df = df.dropna(axis=0)
 
@@ -94,14 +119,13 @@ def clean_data_ui(df):
 
         st.success("Cleaning applied successfully!")
 
-        st.write("**Rows before cleaning:**", original_shape[0])
-        st.write("**Rows after cleaning:**", df.shape[0])
-
     return df
 
-# ---------- NLP ----------
+
+# ---------- NLP CHATBOT ----------
+
 def nlp_chatbot(question, df):
-    tokens = question.lower().split()
+    tokens = word_tokenize(question.lower())
     numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
 
     if "total" in tokens and numeric_cols:
@@ -126,9 +150,35 @@ def nlp_chatbot(question, df):
 
     return "Try asking about total, average, highest, or prediction."
 
-# ---------- LOGIN ----------
+
+# ---------- PDF REPORT ----------
+
+def create_full_pdf(text, fig_path=None):
+    pdf_path = "/tmp/DataGenie_Report.pdf"
+
+    pdfmetrics.registerFont(UnicodeCIDFont("HYSMyeongJo-Medium"))
+
+    doc = SimpleDocTemplate(pdf_path)
+    styles = getSampleStyleSheet()
+    styles["Normal"].fontName = "HYSMyeongJo-Medium"
+
+    elements = []
+
+    for line in text.split("\n"):
+        elements.append(Paragraph(line, styles["Normal"]))
+        elements.append(Spacer(1, 12))
+
+    if fig_path:
+        elements.append(Image(fig_path, width=400, height=300))
+
+    doc.build(elements)
+    return pdf_path
+
+
+# ---------- LOGIN PAGE ----------
+
 def login_page():
-    st.title("🤖 DataGenie Login")
+    st.title("🔐 DataGenie Login")
 
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
@@ -143,11 +193,13 @@ def login_page():
         else:
             st.error("Invalid username or password")
 
-    if st.button("Register"):
+    if st.button("Go to Register"):
         st.session_state.page = "register"
         st.rerun()
 
-# ---------- REGISTER ----------
+
+# ---------- REGISTER PAGE ----------
+
 def register_page():
     st.title("📝 Register")
 
@@ -162,28 +214,11 @@ def register_page():
         else:
             st.error("Username already exists")
 
-# ---------- PDF ----------
-def create_full_pdf(text, fig):
-    path = "/tmp/datagenie_full_report.pdf"
-    doc = SimpleDocTemplate(path)
-    styles = getSampleStyleSheet()
-    elems = []
 
-    for line in text.split("\n"):
-        elems.append(Paragraph(line, styles["Normal"]))
-        elems.append(Spacer(1, 12))
+# ---------- MAIN APP ----------
 
-    if fig:
-        img_path = "/tmp/chart.png"
-        fig.savefig(img_path)
-        elems.append(Image(img_path, width=400, height=300))
-
-    doc.build(elems)
-    return path
-
-# ---------- MAIN ----------
 def main_app():
-    st.title("📊 DataGenie Dashboard")
+    st.title("📊 DataGenie AI Dashboard")
 
     if st.button("Logout"):
         st.session_state.logged_in = False
@@ -203,31 +238,38 @@ def main_app():
 
     df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith("csv") else pd.read_excel(uploaded_file)
 
-    df = clean_data_ui(df)
     save_upload(st.session_state.user_id, uploaded_file.name)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "🧹 Data Cleaning",
-    "📄 Data Preview",
-    "📊 Dashboard",
-    "🤖 AI Insights",
-    "💬 Chatbot",
-    ])
+    # ---------- TABS ----------
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        [
+            "🧹 Data Cleaning",
+            "📄 Data Preview",
+            "📊 Dashboard",
+            "🤖 AI Insights",
+            "💬 Chatbot",
+        ]
+    )
 
-    # ---------- TAB 1 ----------
+    # TAB 1 CLEANING
     with tab1:
-        st.dataframe(df, use_container_width=True)
         df = clean_data_ui(df)
 
-    # ---------- TAB 2 ----------
+    # TAB 2 PREVIEW
     with tab2:
-        st.subheader("Cleaned Dataset")
+        st.subheader("Dataset Preview")
         st.dataframe(df, use_container_width=True)
-        x_col = st.selectbox("Select X column", df.columns)
+        st.info("Data cleaning removes nulls, duplicates, and improves data quality.")
+
+    # TAB 3 DASHBOARD
+    with tab3:
+        st.subheader("Create Custom Chart")
+
+        x_col = st.selectbox("Select X-axis", df.columns)
         numeric_cols = df.select_dtypes(include=np.number).columns
 
         if len(numeric_cols) > 0:
-            y_col = st.selectbox("Select Y column", numeric_cols)
+            y_col = st.selectbox("Select Y-axis", numeric_cols)
             chart_type = st.selectbox("Chart Type", ["Bar", "Line", "Pie", "Histogram"])
 
             fig, ax = plt.subplots()
@@ -243,55 +285,58 @@ def main_app():
                 df[y_col].plot(kind="hist", ax=ax)
 
             st.pyplot(fig)
-            st.session_state["last_fig"] = fig
 
-    # ---------- TAB 3 ----------
-    with tab3:
-        important_keywords = ["sales", "profit", "revenue", "amount", "quantity", "cost"]
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+            fig.savefig(tmp.name)
+            st.session_state["chart_path"] = tmp.name
 
+    # TAB 4 AI INSIGHTS
+    with tab4:
+        st.subheader("Business Insights")
+
+        keywords = ["sales", "profit", "price", "revenue", "discount"]
         important_cols = [
-            col for col in df.select_dtypes(include=np.number).columns
-            if any(key in col.lower() for key in important_keywords)
+            col
+            for col in df.select_dtypes(include=np.number).columns
+            if any(k in col.lower() for k in keywords)
         ]
 
         insights = []
 
-        if important_cols:
-            for col in important_cols:
-                insights.append(
-                    f"{col} → Total: {df[col].sum():,.2f}, Avg: {df[col].mean():,.2f}, Max: {df[col].max():,.2f}"
-                )
-        else:
-            insights.append("No major business metric columns found.")
+        for col in important_cols:
+            insights.append(
+                f"{col} → Total: {df[col].sum():,.2f}, Avg: {df[col].mean():,.2f}, Max: {df[col].max():,.2f}"
+            )
 
-        insight_text = "\n".join(insights)
+        insight_text = "\n".join(insights) if insights else "No major business columns found."
+
         st.text(insight_text)
 
-        numeric_cols = df.select_dtypes(include=np.number).columns
-        if len(numeric_cols) > 0:
-            col = numeric_cols[0]
-
+        # prediction
+        if important_cols:
+            col = important_cols[0]
             X = np.arange(len(df)).reshape(-1, 1)
             y = df[col].values
             model = LinearRegression().fit(X, y)
             pred = model.predict([[len(df)]])[0]
 
             st.success(f"Predicted next {col}: {pred:,.2f}")
+            insight_text += f"\nPredicted next {col}: {pred:,.2f}"
 
-        fig = st.session_state.get("last_fig", None)
-
-        if st.button("Download Full Report (Dashboard + AI)"):
-            pdf_path = create_full_pdf(insight_text, fig)
-            with open(pdf_path, "rb") as f:
+        if st.button("Download Dashboard + AI Report"):
+            pdf = create_full_pdf(insight_text, st.session_state.get("chart_path"))
+            with open(pdf, "rb") as f:
                 st.download_button("Download PDF", f, "DataGenie_Report.pdf")
 
-    # ---------- TAB 4 ----------
-    with tab4:
-        question = st.text_input("Ask your question")
+    # TAB 5 CHATBOT
+    with tab5:
+        st.subheader("Chat with Your Data")
+        question = st.text_input("Ask something about your dataset")
 
         if question:
             answer = nlp_chatbot(question, df)
             st.success(answer)
+
 
 # ---------- ROUTER ----------
 if not st.session_state.logged_in:
