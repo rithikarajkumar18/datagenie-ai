@@ -19,7 +19,7 @@ except LookupError:
 st.set_page_config(page_title="DataGenie AI", layout="wide")
 
 # ---------- DATABASE ----------
-conn = sqlite3.connect("datagenie.db", check_same_thread=False)
+conn = sqlite3.connect("/mount/src/datagenie-ai/datagenie.db", check_same_thread=False)
 cursor = conn.cursor()
 
 cursor.execute("""
@@ -54,8 +54,10 @@ def register_user(username, password):
         cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
         conn.commit()
         return True
-    except:
+    except Exception as e:
+        st.error(f"Register error: {e}")
         return False
+    
 
 
 def login_user(username, password):
