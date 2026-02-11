@@ -72,12 +72,14 @@ def clean_data_ui(df):
 
     original_shape = df.shape
 
-    remove_empty_rows = st.checkbox("Remove rows with empty values")
-    remove_empty_cols = st.checkbox("Remove columns with empty values")
-    remove_duplicates = st.checkbox("Remove duplicate rows")
-    fill_missing = st.checkbox("Fill missing numeric values with mean")
+    remove_empty_rows = st.checkbox("Remove rows with empty values", key="clean_rows")
+    remove_empty_cols = st.checkbox("Remove columns with empty values", key="clean_cols")
+    remove_duplicates = st.checkbox("Remove duplicate rows", key="clean_dup")
+    fill_missing = st.checkbox("Fill missing numeric values with mean", key="clean_fill")
+    
 
-    if st.button("Apply Cleaning"):
+    if st.button("Apply Cleaning", key="apply_cleaning"):
+
         if remove_empty_rows:
             df = df.dropna(axis=0)
 
