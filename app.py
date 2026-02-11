@@ -207,9 +207,8 @@ def main_app():
     df = clean_data_ui(df)
     save_upload(st.session_state.user_id, uploaded_file.name)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
     "🧹 Data Cleaning",
-    "📄 Data Preview",
     "📊 Dashboard",
     "🤖 AI Insights",
     "💬 Chatbot",
@@ -217,11 +216,6 @@ def main_app():
 
     # ---------- TAB 1 ----------
     with tab1:
-        st.dataframe(df, use_container_width=True)
-        df = clean_data_ui(df)
-
-    # ---------- TAB 2 ----------
-    with tab2:
         st.subheader("Cleaned Dataset")
         st.dataframe(df, use_container_width=True)
         x_col = st.selectbox("Select X column", df.columns)
@@ -246,8 +240,8 @@ def main_app():
             st.pyplot(fig)
             st.session_state["last_fig"] = fig
 
-    # ---------- TAB 3 ----------
-    with tab3:
+    # ---------- TAB 2 ----------
+    with tab2:
         important_keywords = ["sales", "profit", "revenue", "amount", "quantity", "cost"]
 
         important_cols = [
@@ -286,8 +280,8 @@ def main_app():
             with open(pdf_path, "rb") as f:
                 st.download_button("Download PDF", f, "DataGenie_Report.pdf")
 
-    # ---------- TAB 4 ----------
-    with tab4:
+    # ---------- TAB 3 ----------
+    with tab3:
         question = st.text_input("Ask your question")
 
         if question:
