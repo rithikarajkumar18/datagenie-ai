@@ -144,16 +144,16 @@ def nlp_chatbot(question, df):
         col = numeric_cols[0]
         clean_df = df[[col]].dropna()
 
-    if len(clean_df) > 1:
-        X = np.arange(len(clean_df)).reshape(-1, 1)
-        y = clean_df[col].values
-        model = LinearRegression().fit(X, y)
-        pred = model.predict([[len(clean_df)]])[0]
-        return f"Next predicted {col} is {pred:,.2f}"
-    else:
-        return "Not enough clean data to predict."
-        pred = model.predict([[len(df)]])[0]
-        return f"Next predicted {col} is {pred:,.2f}"
+        if len(clean_df) > 1:
+           X = np.arange(len(clean_df)).reshape(-1, 1)
+           y = clean_df[col].values
+           model = LinearRegression().fit(X, y)
+           pred = model.predict([[len(clean_df)]])[0]
+           return f"Next predicted {col} is {pred:,.2f}"
+        else:
+           return "Not enough clean data to predict."
+           pred = model.predict([[len(df)]])[0]
+           return f"Next predicted {col} is {pred:,.2f}"
 
     return "Try asking about total, average, highest, or prediction."
 
@@ -373,6 +373,7 @@ if not st.session_state.logged_in:
         register_page()
 else:
         main_app()
+
 
 
 
