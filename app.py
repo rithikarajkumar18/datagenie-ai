@@ -244,7 +244,7 @@ def main_app():
         return
 
     if uploaded_file is not None:
-    if uploaded_file.name.endswith(".csv"):
+        if uploaded_file.name.endswith(".csv"):
         try:
             df = pd.read_csv(uploaded_file, encoding="utf-8")
         except UnicodeDecodeError:
@@ -370,6 +370,7 @@ if not st.session_state.logged_in:
         register_page()
 else:
     main_app()
+
 
 
 
