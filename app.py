@@ -141,8 +141,8 @@ def nlp_chatbot(question, df):
         return f"Highest {col} is {df[col].max():,.2f}"
 
     if "predict" in tokens and numeric_cols:
-    col = numeric_cols[0]
-    clean_df = df[[col]].dropna()
+        col = numeric_cols[0]
+        clean_df = df[[col]].dropna()
 
     if len(clean_df) > 1:
         X = np.arange(len(clean_df)).reshape(-1, 1)
@@ -366,5 +366,6 @@ if not st.session_state.logged_in:
         register_page()
 else:
     main_app()
+
 
 
