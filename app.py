@@ -329,8 +329,7 @@ def main_app():
               y = clean_df[col].values
               model = LinearRegression().fit(X, y)
               pred = model.predict([[len(clean_df)]])[0]
-
-             st.success(f"Predicted next {col}: {pred:,.2f}")
+              st.success(f"Predicted next {col}: {pred:,.2f}")
         else:
              st.warning("Not enough clean data for prediction.")
 
@@ -366,6 +365,7 @@ if not st.session_state.logged_in:
         register_page()
 else:
     main_app()
+
 
 
 
