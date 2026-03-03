@@ -337,9 +337,8 @@ def main_app():
         else:
              st.warning("Not enough clean data for prediction.")
              pred = model.predict([[len(df)]])[0]
-
-            st.success(f"Predicted next {col}: {pred:,.2f}")
-            insight_text += f"\nPredicted next {col}: {pred:,.2f}"
+             st.success(f"Predicted next {col}: {pred:,.2f}")
+             insight_text += f"\nPredicted next {col}: {pred:,.2f}"
 
         if st.button("Download Dashboard + AI Report"):
             pdf = create_full_pdf(insight_text, st.session_state.get("chart_path"))
@@ -364,6 +363,7 @@ if not st.session_state.logged_in:
         register_page()
 else:
     main_app()
+
 
 
 
