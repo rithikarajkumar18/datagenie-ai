@@ -282,7 +282,7 @@ def main_app():
         x_col = st.selectbox("Select X-axis", df.columns)
         numeric_cols = df.select_dtypes(include=np.number).columns
 
-            if len(numeric_cols) > 0:
+        if len(numeric_cols) > 0:
             y_col = st.selectbox("Select Y-axis", numeric_cols)
             chart_type = st.selectbox("Chart Type", ["Bar", "Line", "Pie", "Histogram"])
 
@@ -332,16 +332,16 @@ def main_app():
            col = important_cols[0]
            clean_df = df[[col]].dropna()
 
-        if len(clean_df) > 1:
-             X = np.arange(len(clean_df)).reshape(-1, 1)
-             y = clean_df[col].values
-             model = LinearRegression().fit(X, y)
+           if len(clean_df) > 1:
+               X = np.arange(len(clean_df)).reshape(-1, 1)
+               y = clean_df[col].values
+               model = LinearRegression().fit(X, y)
  
-             pred = model.predict([[len(clean_df)]])[0]
+               pred = model.predict([[len(clean_df)]])[0]
 
              st.success(f"Predicted next {col}: {pred:,.2f}")
              insight_text += f"\nPredicted next {col}: {pred:,.2f}"
-        else:
+           else:
             st.warning("Not enough clean data for prediction.")
         else:
          st.warning("No numeric business columns found for prediction.")
@@ -371,8 +371,9 @@ if not st.session_state.logged_in:
         login_page()
     else:
         register_page()
-    else:
+else:
         main_app()
+
 
 
 
