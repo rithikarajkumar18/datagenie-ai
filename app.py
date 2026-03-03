@@ -346,10 +346,18 @@ def main_app():
             st.warning("Not enough clean data for prediction.")
     else:
          st.warning("No numeric business columns found for prediction.")
-    if st.button("Download Dashboard + AI Report"):
-            pdf = create_full_pdf(insight_text, st.session_state.get("chart_path"))
-            with open(pdf, "rb") as f:
-                st.download_button("Download PDF", f, "DataGenie_Report.pdf")
+        if st.button("Download AI Insights & Dashboard"):
+        pdf = create_full_pdf(
+            insight_text,
+            st.session_state.get("chart_path")
+        )
+
+        with open(pdf, "rb") as f:
+            st.download_button(
+                "Download PDF",
+                f,
+                "DataGenie_Report.pdf"
+            )
 
     # TAB 5 CHATBOT
     with tab5:
@@ -369,6 +377,7 @@ if not st.session_state.logged_in:
         register_page()
 else:
     main_app()
+
 
 
 
