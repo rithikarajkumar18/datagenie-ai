@@ -328,7 +328,7 @@ def main_app():
 
         # prediction
     
-     if important_cols:
+    if important_cols:
          col = important_cols[0]
          clean_df = df[[col]].dropna()
 
@@ -344,7 +344,7 @@ def main_app():
 
          else:
             st.warning("Not enough clean data for prediction.")
-     else:
+    else:
          st.warning("No numeric business columns found for prediction.")
      if st.button("Download AI Insights & Dashboard"):
         pdf = create_full_pdf( insight_text,st.session_state.get("chart_path"))
@@ -374,6 +374,7 @@ if not st.session_state.logged_in:
         register_page()
 else:
     main_app()
+
 
 
 
