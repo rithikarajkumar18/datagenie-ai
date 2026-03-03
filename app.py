@@ -335,6 +335,7 @@ def main_app():
                 X = np.arange(len(clean_df)).reshape(-1, 1)
                 y = clean_df[col].values
                 model = LinearRegression().fit(X, y)
+                
                 pred = model.predict([[len(clean_df)]])[0]
                 st.success(f"Predicted next {col}: {pred:,.2f}")
             else:
@@ -370,6 +371,7 @@ if not st.session_state.logged_in:
         register_page()
 else:
     main_app()
+
 
 
 
