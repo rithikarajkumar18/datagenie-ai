@@ -341,7 +341,6 @@ def main_app():
 
              st.success(f"Predicted next {col}: {pred:,.2f}")
              insight_text += f"\nPredicted next {col}: {pred:,.2f}"
-
           else:
             st.warning("Not enough clean data for prediction.")
         else:
@@ -374,6 +373,7 @@ if not st.session_state.logged_in:
         register_page()
 else:
     main_app()
+
 
 
 
