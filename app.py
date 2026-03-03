@@ -141,10 +141,17 @@ def nlp_chatbot(question, df):
         return f"Highest {col} is {df[col].max():,.2f}"
 
     if "predict" in tokens and numeric_cols:
-        col = numeric_cols[0]
-        X = np.arange(len(df)).reshape(-1, 1)
-        y = df[col].values
+    col = numeric_cols[0]
+    clean_df = df[[col]].dropna()
+
+    if len(clean_df) > 1:
+        X = np.arange(len(clean_df)).reshape(-1, 1)
+        y = clean_df[col].values
         model = LinearRegression().fit(X, y)
+        pred = model.predict([[len(clean_df)]])[0]
+        return f"Next predicted {col} is {pred:,.2f}"
+    else:
+        return "Not enough clean data to predict."
         pred = model.predict([[len(df)]])[0]
         return f"Next predicted {col} is {pred:,.2f}"
 
@@ -318,10 +325,14 @@ def main_app():
             clean_df = df[[col]].dropna()
 
         if len(clean_df) > 1:
-             X = np.arange(len(clean_df)).reshape(-1, 1)
-             y = clean_df[col].values
-             model = LinearRegression().fit(X, y)
-             pred = model.predict([[len(clean_df)]])[0]
+              X = np.arange(len(clean_df)).reshape(-1, 1)
+              y = clean_df[col].values
+              model = LinearRegression().fit(X, y)
+              pred = model.predict([[len(clean_df)]])[0]
+
+    st.success(f"Predicted next {col}: {pred:,.2f}")
+else:
+    st.warning("Not enough clean data for prediction.")
 
              st.success(f"Predicted next {col}: {pred:,.2f}")
              insight_text += f"\nPredicted next {col}: {pred:,.2f}"
@@ -355,4 +366,5 @@ if not st.session_state.logged_in:
         register_page()
 else:
     main_app()
+
 
