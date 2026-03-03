@@ -324,17 +324,16 @@ def main_app():
             col = important_cols[0]
             clean_df = df[[col]].dropna()
 
-        if len(clean_df) > 1:
-              X = np.arange(len(clean_df)).reshape(-1, 1)
-              y = clean_df[col].values
-              model = LinearRegression().fit(X, y)
-              pred = model.predict([[len(clean_df)]])[0]
-              st.success(f"Predicted next {col}: {pred:,.2f}")
-        else:
-             st.warning("Not enough clean data for prediction.")
-
-             st.success(f"Predicted next {col}: {pred:,.2f}")
-             insight_text += f"\nPredicted next {col}: {pred:,.2f}"
+            if len(clean_df) > 1:
+                X = np.arange(len(clean_df)).reshape(-1, 1)
+                y = clean_df[col].values
+                model = LinearRegression().fit(X, y)
+                pred = model.predict([[len(clean_df)]])[0]
+                st.success(f"Predicted next {col}: {pred:,.2f}")
+            else:
+                st.warning("Not enough clean data for prediction.")
+                st.success(f"Predicted next {col}: {pred:,.2f}")
+                insight_text += f"\nPredicted next {col}: {pred:,.2f}"
          else:
              st.warning("Not enough clean data for prediction.")
              pred = model.predict([[len(df)]])[0]
@@ -365,6 +364,7 @@ if not st.session_state.logged_in:
         register_page()
 else:
     main_app()
+
 
 
 
