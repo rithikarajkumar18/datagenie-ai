@@ -142,18 +142,11 @@ def nlp_chatbot(question, df):
 
     if "predict" in tokens and numeric_cols:
         col = numeric_cols[0]
-        clean_df = df[[col]].dropna()
-
-        if len(clean_df) > 1:
-           X = np.arange(len(clean_df)).reshape(-1, 1)
-           y = clean_df[col].values
-           model = LinearRegression().fit(X, y)
-           pred = model.predict([[len(clean_df)]])[0]
-           return f"Next predicted {col} is {pred:,.2f}"
-        else:
-           return "Not enough clean data to predict."
-           pred = model.predict([[len(df)]])[0]
-           return f"Next predicted {col} is {pred:,.2f}"
+        X = np.arange(len(df)).reshape(-1, 1)
+        y = df[col].values
+        model = LinearRegression().fit(X, y)
+        pred = model.predict([[len(df)]])[0]
+        return f"Next predicted {col} is {pred:,.2f}"
 
     return "Try asking about total, average, highest, or prediction."
 
@@ -243,14 +236,7 @@ def main_app():
         st.info("Upload an Excel/CSV file from the sidebar to begin.")
         return
 
-    if uploaded_file is not None:
-        if uploaded_file.name.endswith(".csv"):
-           try:
-             df = pd.read_csv(uploaded_file, encoding="utf-8")
-           except UnicodeDecodeError:
-             df = pd.read_csv(uploaded_file, encoding="latin1")
-    else:
-        df = pd.read_excel(uploaded_file)
+    df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith("csv") else pd.read_excel(uploaded_file)
 
     save_upload(st.session_state.user_id, uploaded_file.name)
 
@@ -327,32 +313,20 @@ def main_app():
         st.text(insight_text)
 
         # prediction
-    
         if important_cols:
-           col = important_cols[0]
-           clean_df = df[[col]].dropna()
+            col = important_cols[0]
+            X = np.arange(len(df)).reshape(-1, 1)
+            y = df[col].values
+            model = LinearRegression().fit(X, y)
+            pred = model.predict([[len(df)]])[0]
 
-           if len(clean_df) > 1:
-               X = np.arange(len(clean_df)).reshape(-1, 1)
-               y = clean_df[col].values
-               model = LinearRegression().fit(X, y)
- 
-               pred = model.predict([[len(clean_df)]])[0]
-               st.success(f"Predicted next {col}: {pred:,.2f}")
-               insight_text += f"\nPredicted next {col}: {pred:,.2f}"
-           else:
-            st.warning("Not enough clean data for prediction.")
-        else:
-         st.warning("No numeric business columns found for prediction.")
-        if st.button("Download AI Insights & Dashboard"):
-           pdf = create_full_pdf( insight_text,st.session_state.get("chart_path"))
+            st.success(f"Predicted next {col}: {pred:,.2f}")
+            insight_text += f"\nPredicted next {col}: {pred:,.2f}"
 
-           with open(pdf, "rb") as f:
-            st.download_button(
-                "Download PDF",
-                f,
-                "DataGenie_Report.pdf"
-            )
+        if st.button("Download Dashboard + AI Report"):
+            pdf = create_full_pdf(insight_text, st.session_state.get("chart_path"))
+            with open(pdf, "rb") as f:
+                st.download_button("Download PDF", f, "DataGenie_Report.pdf")
 
     # TAB 5 CHATBOT
     with tab5:
@@ -362,6 +336,164 @@ def main_app():
         if question:
             answer = nlp_chatbot(question, df)
             st.success(answer)
+    def advanced_cleaning_ui(df):
+
+    st.subheader("⚡ Advanced Data Cleaning")
+
+    # ---------------------------
+    # Missing Value Handling
+    # ---------------------------
+    st.markdown("### Handle Missing Values")
+
+    fill_method = st.selectbox(
+        "Fill Missing Values Method",
+        ["None", "Mean", "Median", "Mode", "Forward Fill", "Backward Fill", "Zero"]
+    )
+
+    if fill_method == "Mean":
+        for col in df.select_dtypes(include=np.number):
+            df[col] = df[col].fillna(df[col].mean())
+
+    elif fill_method == "Median":
+        for col in df.select_dtypes(include=np.number):
+            df[col] = df[col].fillna(df[col].median())
+
+    elif fill_method == "Mode":
+        for col in df.columns:
+            df[col] = df[col].fillna(df[col].mode()[0])
+
+    elif fill_method == "Forward Fill":
+        df = df.fillna(method="ffill")
+
+    elif fill_method == "Backward Fill":
+        df = df.fillna(method="bfill")
+
+    elif fill_method == "Zero":
+        df = df.fillna(0)
+
+    # ---------------------------
+    # Remove Duplicates
+    # ---------------------------
+    if st.checkbox("Remove Duplicate Rows"):
+        df = df.drop_duplicates()
+        st.success("Duplicates removed")
+
+    # ---------------------------
+    # Remove Outliers
+    # ---------------------------
+    if st.checkbox("Remove Outliers (IQR Method)"):
+        numeric_cols = df.select_dtypes(include=np.number)
+
+        for col in numeric_cols:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+
+            df = df[
+                (df[col] >= Q1 - 1.5 * IQR) &
+                (df[col] <= Q3 + 1.5 * IQR)
+            ]
+
+        st.success("Outliers removed")
+
+    # ---------------------------
+    # Text Cleaning
+    # ---------------------------
+    if st.checkbox("Remove Special Characters"):
+        df = df.replace(r"[^\w\s]", "", regex=True)
+
+    # ---------------------------
+    # Trim Spaces
+    # ---------------------------
+    if st.checkbox("Trim Spaces"):
+        df = df.applymap(
+            lambda x: x.strip() if isinstance(x, str) else x
+        )
+
+    # ---------------------------
+    # Case Normalization
+    # ---------------------------
+    case_option = st.selectbox(
+        "Normalize Text Case",
+        ["None", "Lowercase", "Uppercase", "Title Case"]
+    )
+
+    if case_option == "Lowercase":
+        df = df.applymap(
+            lambda x: x.lower() if isinstance(x, str) else x
+        )
+
+    elif case_option == "Uppercase":
+        df = df.applymap(
+            lambda x: x.upper() if isinstance(x, str) else x
+        )
+
+    elif case_option == "Title Case":
+        df = df.applymap(
+            lambda x: x.title() if isinstance(x, str) else x
+        )
+
+    # ---------------------------
+    # Column Rename
+    # ---------------------------
+    st.markdown("### Rename Column")
+
+    col = st.selectbox("Select Column", df.columns)
+    new_name = st.text_input("New Column Name")
+
+    if st.button("Rename Column"):
+        df.rename(columns={col: new_name}, inplace=True)
+        st.success("Column renamed")
+
+    # ---------------------------
+    # Data Type Conversion
+    # ---------------------------
+    st.markdown("### Convert Data Type")
+
+    dtype_col = st.selectbox("Column to Convert", df.columns)
+    dtype_type = st.selectbox(
+        "Convert To",
+        ["int", "float", "string"]
+    )
+
+    if st.button("Convert Type"):
+        try:
+            df[dtype_col] = df[dtype_col].astype(dtype_type)
+            st.success("Data type converted")
+        except:
+            st.error("Conversion failed")
+
+    # ---------------------------
+    # Date Parsing
+    # ---------------------------
+    st.markdown("### Convert to Date")
+
+    date_col = st.selectbox("Select Date Column", df.columns)
+
+    if st.button("Convert to Date"):
+        try:
+            df[date_col] = pd.to_datetime(df[date_col])
+            st.success("Converted to datetime")
+        except:
+            st.error("Date conversion failed")
+
+    # ---------------------------
+    # Data Quality Report
+    # ---------------------------
+    st.markdown("### Data Quality Report")
+
+    st.write("Shape of Dataset:", df.shape)
+
+    st.write("Missing Values")
+    st.write(df.isnull().sum())
+
+    st.write("Duplicate Rows")
+    st.write(df.duplicated().sum())
+
+    st.write("Data Types")
+    st.write(df.dtypes)
+
+    return df
 
 
 # ---------- ROUTER ----------
@@ -371,35 +503,4 @@ if not st.session_state.logged_in:
     else:
         register_page()
 else:
-        main_app()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    main_app()
