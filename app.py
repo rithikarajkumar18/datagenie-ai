@@ -336,7 +336,18 @@ def main_app():
         if question:
             answer = nlp_chatbot(question, df)
             st.success(answer)
-    def advanced_cleaning_ui(df):
+   
+
+# ---------- ROUTER ----------
+if not st.session_state.logged_in:
+    if st.session_state.page == "login":
+        login_page()
+    else:
+        register_page()
+else:
+    main_app()
+ 
+     def advanced_cleaning_ui(df):
 
     st.subheader("⚡ Advanced Data Cleaning")
 
@@ -494,13 +505,3 @@ def main_app():
     st.write(df.dtypes)
 
     return df
-
-
-# ---------- ROUTER ----------
-if not st.session_state.logged_in:
-    if st.session_state.page == "login":
-        login_page()
-    else:
-        register_page()
-else:
-    main_app()
