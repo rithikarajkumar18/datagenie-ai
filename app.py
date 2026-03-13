@@ -121,6 +121,164 @@ def clean_data_ui(df):
 
     return df
 
+def advanced_cleaning_ui(df):
+
+    st.subheader("⚡ Advanced Data Cleaning")
+
+    # ---------------------------
+    # Missing Value Handling
+    # ---------------------------
+    st.markdown("### Handle Missing Values")
+
+    fill_method = st.selectbox(
+        "Fill Missing Values Method",
+        ["None", "Mean", "Median", "Mode", "Forward Fill", "Backward Fill", "Zero"]
+    )
+
+    if fill_method == "Mean":
+        for col in df.select_dtypes(include=np.number):
+            df[col] = df[col].fillna(df[col].mean())
+
+    elif fill_method == "Median":
+        for col in df.select_dtypes(include=np.number):
+            df[col] = df[col].fillna(df[col].median())
+
+    elif fill_method == "Mode":
+        for col in df.columns:
+            df[col] = df[col].fillna(df[col].mode()[0])
+
+    elif fill_method == "Forward Fill":
+        df = df.fillna(method="ffill")
+
+    elif fill_method == "Backward Fill":
+        df = df.fillna(method="bfill")
+
+    elif fill_method == "Zero":
+        df = df.fillna(0)
+
+    # ---------------------------
+    # Remove Duplicates
+    # ---------------------------
+    if st.checkbox("Remove Duplicate Rows"):
+        df = df.drop_duplicates()
+        st.success("Duplicates removed")
+
+    # ---------------------------
+    # Remove Outliers
+    # ---------------------------
+    if st.checkbox("Remove Outliers (IQR Method)"):
+        numeric_cols = df.select_dtypes(include=np.number)
+
+        for col in numeric_cols:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+
+            df = df[
+                (df[col] >= Q1 - 1.5 * IQR) &
+                (df[col] <= Q3 + 1.5 * IQR)
+            ]
+
+        st.success("Outliers removed")
+
+    # ---------------------------
+    # Text Cleaning
+    # ---------------------------
+    if st.checkbox("Remove Special Characters"):
+        df = df.replace(r"[^\w\s]", "", regex=True)
+
+    # ---------------------------
+    # Trim Spaces
+    # ---------------------------
+    if st.checkbox("Trim Spaces"):
+        df = df.applymap(
+            lambda x: x.strip() if isinstance(x, str) else x
+        )
+
+    # ---------------------------
+    # Case Normalization
+    # ---------------------------
+    case_option = st.selectbox(
+        "Normalize Text Case",
+        ["None", "Lowercase", "Uppercase", "Title Case"]
+    )
+
+    if case_option == "Lowercase":
+        df = df.applymap(
+            lambda x: x.lower() if isinstance(x, str) else x
+        )
+
+    elif case_option == "Uppercase":
+        df = df.applymap(
+            lambda x: x.upper() if isinstance(x, str) else x
+        )
+
+    elif case_option == "Title Case":
+        df = df.applymap(
+            lambda x: x.title() if isinstance(x, str) else x
+        )
+
+    # ---------------------------
+    # Column Rename
+    # ---------------------------
+    st.markdown("### Rename Column")
+
+    col = st.selectbox("Select Column", df.columns)
+    new_name = st.text_input("New Column Name")
+
+    if st.button("Rename Column"):
+        df.rename(columns={col: new_name}, inplace=True)
+        st.success("Column renamed")
+
+    # ---------------------------
+    # Data Type Conversion
+    # ---------------------------
+    st.markdown("### Convert Data Type")
+
+    dtype_col = st.selectbox("Column to Convert", df.columns)
+    dtype_type = st.selectbox(
+        "Convert To",
+        ["int", "float", "string"]
+    )
+
+    if st.button("Convert Type"):
+        try:
+            df[dtype_col] = df[dtype_col].astype(dtype_type)
+            st.success("Data type converted")
+        except:
+            st.error("Conversion failed")
+
+    # ---------------------------
+    # Date Parsing
+    # ---------------------------
+    st.markdown("### Convert to Date")
+
+    date_col = st.selectbox("Select Date Column", df.columns)
+
+    if st.button("Convert to Date"):
+        try:
+            df[date_col] = pd.to_datetime(df[date_col])
+            st.success("Converted to datetime")
+        except:
+            st.error("Date conversion failed")
+
+    # ---------------------------
+    # Data Quality Report
+    # ---------------------------
+    st.markdown("### Data Quality Report")
+
+    st.write("Shape of Dataset:", df.shape)
+
+    st.write("Missing Values")
+    st.write(df.isnull().sum())
+
+    st.write("Duplicate Rows")
+    st.write(df.duplicated().sum())
+
+    st.write("Data Types")
+    st.write(df.dtypes)
+
+    return df
 
 # ---------- NLP CHATBOT ----------
 
@@ -346,162 +504,3 @@ if not st.session_state.logged_in:
         register_page()
 else:
     main_app()
- 
-     def advanced_cleaning_ui(df):
-
-    st.subheader("⚡ Advanced Data Cleaning")
-
-    # ---------------------------
-    # Missing Value Handling
-    # ---------------------------
-    st.markdown("### Handle Missing Values")
-
-    fill_method = st.selectbox(
-        "Fill Missing Values Method",
-        ["None", "Mean", "Median", "Mode", "Forward Fill", "Backward Fill", "Zero"]
-    )
-
-    if fill_method == "Mean":
-        for col in df.select_dtypes(include=np.number):
-            df[col] = df[col].fillna(df[col].mean())
-
-    elif fill_method == "Median":
-        for col in df.select_dtypes(include=np.number):
-            df[col] = df[col].fillna(df[col].median())
-
-    elif fill_method == "Mode":
-        for col in df.columns:
-            df[col] = df[col].fillna(df[col].mode()[0])
-
-    elif fill_method == "Forward Fill":
-        df = df.fillna(method="ffill")
-
-    elif fill_method == "Backward Fill":
-        df = df.fillna(method="bfill")
-
-    elif fill_method == "Zero":
-        df = df.fillna(0)
-
-    # ---------------------------
-    # Remove Duplicates
-    # ---------------------------
-    if st.checkbox("Remove Duplicate Rows"):
-        df = df.drop_duplicates()
-        st.success("Duplicates removed")
-
-    # ---------------------------
-    # Remove Outliers
-    # ---------------------------
-    if st.checkbox("Remove Outliers (IQR Method)"):
-        numeric_cols = df.select_dtypes(include=np.number)
-
-        for col in numeric_cols:
-            Q1 = df[col].quantile(0.25)
-            Q3 = df[col].quantile(0.75)
-            IQR = Q3 - Q1
-
-            df = df[
-                (df[col] >= Q1 - 1.5 * IQR) &
-                (df[col] <= Q3 + 1.5 * IQR)
-            ]
-
-        st.success("Outliers removed")
-
-    # ---------------------------
-    # Text Cleaning
-    # ---------------------------
-    if st.checkbox("Remove Special Characters"):
-        df = df.replace(r"[^\w\s]", "", regex=True)
-
-    # ---------------------------
-    # Trim Spaces
-    # ---------------------------
-    if st.checkbox("Trim Spaces"):
-        df = df.applymap(
-            lambda x: x.strip() if isinstance(x, str) else x
-        )
-
-    # ---------------------------
-    # Case Normalization
-    # ---------------------------
-    case_option = st.selectbox(
-        "Normalize Text Case",
-        ["None", "Lowercase", "Uppercase", "Title Case"]
-    )
-
-    if case_option == "Lowercase":
-        df = df.applymap(
-            lambda x: x.lower() if isinstance(x, str) else x
-        )
-
-    elif case_option == "Uppercase":
-        df = df.applymap(
-            lambda x: x.upper() if isinstance(x, str) else x
-        )
-
-    elif case_option == "Title Case":
-        df = df.applymap(
-            lambda x: x.title() if isinstance(x, str) else x
-        )
-
-    # ---------------------------
-    # Column Rename
-    # ---------------------------
-    st.markdown("### Rename Column")
-
-    col = st.selectbox("Select Column", df.columns)
-    new_name = st.text_input("New Column Name")
-
-    if st.button("Rename Column"):
-        df.rename(columns={col: new_name}, inplace=True)
-        st.success("Column renamed")
-
-    # ---------------------------
-    # Data Type Conversion
-    # ---------------------------
-    st.markdown("### Convert Data Type")
-
-    dtype_col = st.selectbox("Column to Convert", df.columns)
-    dtype_type = st.selectbox(
-        "Convert To",
-        ["int", "float", "string"]
-    )
-
-    if st.button("Convert Type"):
-        try:
-            df[dtype_col] = df[dtype_col].astype(dtype_type)
-            st.success("Data type converted")
-        except:
-            st.error("Conversion failed")
-
-    # ---------------------------
-    # Date Parsing
-    # ---------------------------
-    st.markdown("### Convert to Date")
-
-    date_col = st.selectbox("Select Date Column", df.columns)
-
-    if st.button("Convert to Date"):
-        try:
-            df[date_col] = pd.to_datetime(df[date_col])
-            st.success("Converted to datetime")
-        except:
-            st.error("Date conversion failed")
-
-    # ---------------------------
-    # Data Quality Report
-    # ---------------------------
-    st.markdown("### Data Quality Report")
-
-    st.write("Shape of Dataset:", df.shape)
-
-    st.write("Missing Values")
-    st.write(df.isnull().sum())
-
-    st.write("Duplicate Rows")
-    st.write(df.duplicated().sum())
-
-    st.write("Data Types")
-    st.write(df.dtypes)
-
-    return df
