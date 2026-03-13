@@ -10,25 +10,29 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from sklearn.linear_model import LinearRegression
 import nltk
-from nltk.tokenize import word_tokenize
-import tempfile
 import os
+import tempfile
 
-# ──────────────── NLTK SETUP ────────────────
-try:
-    nltk.data.find("tokenizers/punkt")
-except LookupError:
-    nltk.download("punkt", quiet=True)
+# ──────────────── NLTK DATA SETUP (fixed version) ────────────────
+nltk_data_dir = os.path.join(os.path.expanduser("~"), "nltk_data")
+os.makedirs(nltk_data_dir, exist_ok=True)
+nltk.data.path.append(nltk_data_dir)
+
+for pkg in ["punkt", "punkt_tab"]:
+    try:
+        nltk.data.find(f"tokenizers/{pkg}")
+    except LookupError:
+        nltk.download(pkg, quiet=True, download_dir=nltk_data_dir)
 
 # ──────────────── PAGE CONFIG ────────────────
 st.set_page_config(
     page_title="DataGenie AI",
     layout="wide",
-    page_icon="📊",
+    page_icon="🪄",
     initial_sidebar_state="expanded"
 )
 
-# ──────────────── DATABASE SETUP ────────────────
+# ──────────────── DATABASE ────────────────
 @st.cache_resource
 def get_db_connection():
     conn = sqlite3.connect("datagenie.db", check_same_thread=False)
@@ -56,85 +60,62 @@ cursor.execute("""
 """)
 conn.commit()
 
-# ──────────────── SESSION STATE INITIALIZATION ────────────────
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "page" not in st.session_state:
-    st.session_state.page = "login"
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
-if "df" not in st.session_state:
-    st.session_state.df = None
+# ──────────────── SESSION STATE ────────────────
+defaults = {
+    "logged_in": False,
+    "page": "login",
+    "user_id": None,
+    "df": None,
+    "df_filename": None,
+    "working_df": None,
+    "chart_path": None
+}
 
-# ──────────────── AUTHENTICATION FUNCTIONS ────────────────
-def register_user(username: str, password: str) -> bool:
+for key, value in defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+# ──────────────── AUTH FUNCTIONS ────────────────
+def register_user(username, password):
     try:
-        cursor.execute(
-            "INSERT INTO users (username, password) VALUES (?, ?)",
-            (username, password)
-        )
+        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
         return False
 
-def login_user(username: str, password: str):
-    cursor.execute(
-        "SELECT id FROM users WHERE username = ? AND password = ?",
-        (username, password)
-    )
+def login_user(username, password):
+    cursor.execute("SELECT id FROM users WHERE username = ? AND password = ?", (username, password))
     return cursor.fetchone()
 
-def save_upload(user_id: int, filename: str):
-    cursor.execute(
-        "INSERT INTO uploads (user_id, filename) VALUES (?, ?)",
-        (user_id, filename)
-    )
+def save_upload(user_id, filename):
+    cursor.execute("INSERT INTO uploads (user_id, filename) VALUES (?, ?)", (user_id, filename))
     conn.commit()
 
-def get_uploads(user_id: int):
-    cursor.execute(
-        "SELECT filename, upload_time FROM uploads WHERE user_id = ? ORDER BY upload_time DESC",
-        (user_id,)
-    )
+def get_uploads(user_id):
+    cursor.execute("SELECT filename, upload_time FROM uploads WHERE user_id = ? ORDER BY upload_time DESC", (user_id,))
     return cursor.fetchall()
 
-# ──────────────── BASIC CLEANING (optional fallback) ────────────────
-def clean_data_ui(df: pd.DataFrame) -> pd.DataFrame:
-    st.subheader("🧹 Quick Data Cleaning")
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.checkbox("Remove rows with missing values"):
-            df = df.dropna()
-        if st.checkbox("Remove duplicate rows"):
-            df = df.drop_duplicates()
-    with col2:
-        if st.checkbox("Fill numeric missing values with mean"):
-            for col in df.select_dtypes(include=np.number).columns:
-                df[col] = df[col].fillna(df[col].mean())
-    if st.button("Apply Quick Cleaning"):
-        st.success("Quick cleaning applied!")
-    return df
-
-# ──────────────── ADVANCED CLEANING (main one) ────────────────
-def advanced_cleaning_ui(original_df: pd.DataFrame) -> pd.DataFrame:
-    st.subheader("⚡ Advanced Data Cleaning")
-    st.info("Work on a preview copy → Apply when you're happy with the result.")
-
-    if "working_df" not in st.session_state:
+# ──────────────── ADVANCED CLEANING ────────────────
+def advanced_cleaning_ui(original_df):
+    if st.session_state.working_df is None:
         st.session_state.working_df = original_df.copy()
 
-    df = st.session_state.working_df.copy()
+    df = st.session_state.working_df
 
-    # ── Missing Values ──
-    with st.expander("🩹 1. Missing Values", expanded=True):
-        method = st.selectbox(
-            "Fill method",
-            ["Do nothing", "Mean", "Median", "Mode", "Forward fill", "Backward fill", "0", "Custom"]
-        )
+    st.subheader("⚡ Advanced Data Cleaning Studio")
+    st.info("Preview changes → Apply when ready")
+
+    # Missing values
+    with st.expander("1. Missing Values", True):
+        method = st.selectbox("Fill method", [
+            "Do nothing", "Mean", "Median", "Mode", "Forward fill", "Backward fill", "0", "Custom"
+        ])
+        custom_val = ""
         if method == "Custom":
-            custom_val = st.text_input("Custom fill value", "")
-        if st.button("Apply missing value handling"):
+            custom_val = st.text_input("Fill with", "")
+
+        if st.button("Apply missing value fix"):
             if method == "Mean":
                 df = df.fillna(df.select_dtypes(include=np.number).mean())
             elif method == "Median":
@@ -147,368 +128,311 @@ def advanced_cleaning_ui(original_df: pd.DataFrame) -> pd.DataFrame:
                 df = df.bfill()
             elif method == "0":
                 df = df.fillna(0)
-            elif method == "Custom" and custom_val != "":
+            elif method == "Custom" and custom_val:
                 df = df.fillna(custom_val)
             st.session_state.working_df = df
-            st.success("Missing values handled!")
+            st.success("Missing values handled")
             st.rerun()
 
-    # ── Duplicates & Outliers ──
-    col1, col2 = st.columns(2)
-    with col1:
-        with st.expander("🗑️ 2. Duplicates"):
-            if st.checkbox("Remove duplicate rows"):
-                if st.button("Apply duplicate removal"):
-                    df = df.drop_duplicates()
-                    st.session_state.working_df = df
-                    st.success("Duplicates removed!")
-                    st.rerun()
+    col_left, col_right = st.columns(2)
 
-    with col2:
-        with st.expander("📉 3. Outliers (IQR)"):
-            multiplier = st.slider("IQR multiplier", 1.0, 3.0, 1.5, 0.1)
-            if st.button("Remove outliers"):
-                num_cols = df.select_dtypes(include=np.number).columns
-                for col in num_cols:
-                    Q1 = df[col].quantile(0.25)
-                    Q3 = df[col].quantile(0.75)
-                    IQR = Q3 - Q1
-                    lower = Q1 - multiplier * IQR
-                    upper = Q3 + multiplier * IQR
-                    df = df[(df[col] >= lower) & (df[col] <= upper)]
+    with col_left:
+        # Duplicates
+        with st.expander("2. Duplicates"):
+            if st.button("Remove duplicate rows"):
+                df = df.drop_duplicates()
                 st.session_state.working_df = df
-                st.success("Outliers removed!")
+                st.success("Duplicates removed")
                 st.rerun()
 
-    # ── Text Cleaning ──
-    with st.expander("✍️ 4. Text Cleaning"):
-        text_cols = df.select_dtypes(include="object").columns.tolist()
-        selected_text_cols = st.multiselect("Columns to clean", text_cols, default=text_cols[:3])
+    with col_right:
+        # Outliers
+        with st.expander("3. Outliers"):
+            mult = st.slider("IQR multiplier", 1.0, 3.0, 1.5, 0.1)
+            if st.button("Remove outliers"):
+                num = df.select_dtypes(include=np.number).columns
+                for col in num:
+                    Q1, Q3 = df[col].quantile([0.25, 0.75])
+                    IQR = Q3 - Q1
+                    df = df[(df[col] >= Q1 - mult*IQR) & (df[col] <= Q3 + mult*IQR)]
+                st.session_state.working_df = df
+                st.success("Outliers removed")
+                st.rerun()
 
-        trim = st.checkbox("Trim whitespace", value=True)
-        lower = st.checkbox("To lowercase")
-        title = st.checkbox("To title case")
-        remove_special = st.checkbox("Remove special chars (keep alphanum + space)")
+    # Text cleaning
+    with st.expander("4. Text Cleaning"):
+        text_cols = df.select_dtypes("object").columns.tolist()
+        sel_cols = st.multiselect("Clean these columns", text_cols, text_cols[:min(3, len(text_cols))])
+
+        trim = st.checkbox("Trim spaces", True)
+        lower = st.checkbox("Lowercase")
+        title = st.checkbox("Title Case")
+        no_special = st.checkbox("Remove special chars")
 
         if st.button("Apply text cleaning"):
-            for col in selected_text_cols:
-                if trim:
-                    df[col] = df[col].str.strip()
-                if lower:
-                    df[col] = df[col].str.lower()
-                if title:
-                    df[col] = df[col].str.title()
-                if remove_special:
-                    df[col] = df[col].str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
+            for col in sel_cols:
+                s = df[col].astype(str)
+                if trim:   s = s.str.strip()
+                if lower:  s = s.str.lower()
+                if title:  s = s.str.title()
+                if no_special: s = s.str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
+                df[col] = s
             st.session_state.working_df = df
-            st.success("Text cleaning applied!")
+            st.success("Text cleaned")
             st.rerun()
 
-    # ── Column Rename / Type Conversion ──
+    # Rename & Type
     colA, colB = st.columns(2)
     with colA:
-        with st.expander("✏️ 5. Rename Column"):
-            old_col = st.selectbox("Select column", df.columns, key="rename_old_col")
-            new_col_name = st.text_input("New name", value=old_col)
-            if st.button("Rename") and new_col_name.strip() != old_col:
-                df.rename(columns={old_col: new_col_name.strip()}, inplace=True)
+        with st.expander("5. Rename Column"):
+            old = st.selectbox("Column", df.columns, key="rename_sel")
+            new_name = st.text_input("New name", old)
+            if st.button("Rename") and new_name.strip() != old:
+                df = df.rename(columns={old: new_name.strip()})
                 st.session_state.working_df = df
-                st.success(f"Renamed → {new_col_name}")
+                st.success(f"→ {new_name}")
                 st.rerun()
 
     with colB:
-        with st.expander("🔄 6. Change Data Type"):
-            col_to_convert = st.selectbox("Column", df.columns, key="dtype_col")
-            target_type = st.selectbox("Convert to", ["int", "float", "str", "datetime", "category"])
-            if st.button("Convert type"):
+        with st.expander("6. Change Type"):
+            col = st.selectbox("Column", df.columns, key="type_sel")
+            to_type = st.selectbox("To", ["int", "float", "str", "datetime", "category"])
+            if st.button("Convert"):
                 try:
-                    if target_type == "datetime":
-                        df[col_to_convert] = pd.to_datetime(df[col_to_convert], errors="coerce")
+                    if to_type == "datetime":
+                        df[col] = pd.to_datetime(df[col], errors="coerce")
                     else:
-                        df[col_to_convert] = df[col_to_convert].astype(target_type)
+                        df[col] = df[col].astype(to_type)
                     st.session_state.working_df = df
-                    st.success(f"Converted {col_to_convert} → {target_type}")
+                    st.success(f"{col} → {to_type}")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Conversion failed: {str(e)}")
+                    st.error(f"Failed: {e}")
 
-    # ── Reset & Final Apply ──
     st.divider()
-    c1, c2, c3 = st.columns([2, 2, 1])
+    c1, c2 = st.columns([3,1])
     with c1:
-        if st.button("✅ Apply All Changes & Close Editor", type="primary"):
+        if st.button("✅ Apply All Changes", type="primary"):
             st.session_state.df = st.session_state.working_df.copy()
-            st.success("Advanced cleaning applied to main dataset!")
-            st.session_state.pop("working_df", None)
+            st.session_state.working_df = None
+            st.success("Cleaning applied!")
             st.rerun()
-    with c2:
-        if st.button("⟳ Reset to Original Upload"):
+        if st.button("⟳ Reset to Original"):
             st.session_state.working_df = original_df.copy()
-            st.success("Reset complete")
             st.rerun()
-    with c3:
-        st.metric("Rows", len(df))
 
-    st.subheader("Preview of current working data")
-    st.dataframe(df.head(12))
+    st.subheader("Current Preview")
+    st.dataframe(df.head(10))
 
     return df
 
-# ──────────────── SIMPLE NLP CHATBOT ────────────────
-def nlp_chatbot(question: str, df: pd.DataFrame) -> str:
+# ──────────────── SIMPLE CHATBOT ────────────────
+def nlp_chatbot(question, df):
     if df is None or df.empty:
         return "No data loaded yet."
 
-    tokens = word_tokenize(question.lower())
-    num_cols = df.select_dtypes(include=np.number).columns.tolist()
+    try:
+        tokens = nltk.word_tokenize(question.lower())
+    except Exception as e:
+        return f"Tokenization failed: {str(e)}"
 
-    if not num_cols:
-        return "No numeric columns found in the dataset."
+    nums = df.select_dtypes(include=np.number).columns.tolist()
+    if not nums:
+        return "No numeric columns."
 
-    # Very basic keyword matching
-    main_col = num_cols[0]  # naive – improve later
+    col = nums[0]
 
     if any(w in tokens for w in ["total", "sum"]):
-        return f"Total of {main_col}: **{df[main_col].sum():,.2f}**"
-
-    if any(w in tokens for w in ["average", "avg", "mean"]):
-        return f"Average of {main_col}: **{df[main_col].mean():,.2f}**"
-
-    if any(w in tokens for w in ["max", "highest", "maximum"]):
-        return f"Highest {main_col}: **{df[main_col].max():,.2f}**"
-
+        return f"**Total {col}**: {df[col].sum():,.2f}"
+    if any(w in tokens for w in ["average", "mean", "avg"]):
+        return f"**Mean {col}**: {df[col].mean():,.2f}"
+    if any(w in tokens for w in ["max", "highest"]):
+        return f"**Max {col}**: {df[col].max():,.2f}"
     if "predict" in tokens or "next" in tokens:
         try:
             X = np.arange(len(df)).reshape(-1, 1)
-            y = df[main_col].values
-            model = LinearRegression().fit(X, y)
-            next_val = model.predict([[len(df)]])[0]
-            return f"Naive linear prediction for next {main_col}: **{next_val:,.2f}**"
+            y = df[col].fillna(0).values
+            m = LinearRegression().fit(X, y)
+            p = m.predict([[len(df)]])[0]
+            return f"**Next predicted {col}**: {p:,.2f} (simple trend)"
         except:
-            return "Could not run prediction (data issue)."
-
-    return "I understand questions like:\n• total / sum\n• average / mean\n• max / highest\n• predict next"
+            return "Prediction failed."
+    return "Ask about: total, average, max, predict next"
 
 # ──────────────── PDF REPORT ────────────────
-def create_report_pdf(insights_text: str, chart_path: str = None) -> str:
-    pdf_path = os.path.join(tempfile.gettempdir(), "DataGenie_Report.pdf")
-
-    try:
-        pdfmetrics.registerFont(UnicodeCIDFont("Helvetica"))  # fallback if HYSMyeongJo not available
-    except:
-        pass
-
-    doc = SimpleDocTemplate(pdf_path, pagesize=letter)
+def create_report_pdf(text, chart_path=None):
+    path = os.path.join(tempfile.gettempdir(), "datagenie_report.pdf")
+    doc = SimpleDocTemplate(path, pagesize=letter)
     styles = getSampleStyleSheet()
-    elements = []
+    elements = [Paragraph("DataGenie Report", styles["Heading1"]), Spacer(1, 12)]
 
-    elements.append(Paragraph("DataGenie AI Report", styles["Heading1"]))
-    elements.append(Spacer(1, 12))
-
-    for line in insights_text.split("\n"):
+    for line in text.split("\n"):
         if line.strip():
             elements.append(Paragraph(line, styles["Normal"]))
             elements.append(Spacer(1, 8))
 
     if chart_path and os.path.exists(chart_path):
         try:
-            elements.append(Image(chart_path, width=480, height=320))
+            elements.append(Image(chart_path, width=500, height=350))
         except:
-            elements.append(Paragraph("[Chart image could not be included]", styles["Italic"]))
+            pass
 
     doc.build(elements)
-    return pdf_path
+    return path
 
-# ──────────────── LOGIN PAGE ────────────────
+# ──────────────── PAGES ────────────────
 def login_page():
-    st.title("🔐 DataGenie Login")
-    st.markdown("Welcome back! Please sign in.")
-
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-
-        if st.button("Login", use_container_width=True):
-            user = login_user(username, password)
-            if user:
-                st.session_state.logged_in = True
-                st.session_state.user_id = user[0]
-                st.session_state.page = "app"
-                st.rerun()
-            else:
-                st.error("Invalid username or password")
-
-        if st.button("Create new account", use_container_width=True):
-            st.session_state.page = "register"
+    st.title("🔐 DataGenie – Sign In")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        user = login_user(username, password)
+        if user:
+            st.session_state.update(logged_in=True, user_id=user[0], page="app")
             st.rerun()
+        else:
+            st.error("Wrong credentials")
+    if st.button("Register instead"):
+        st.session_state.page = "register"
+        st.rerun()
 
-# ──────────────── REGISTER PAGE ────────────────
 def register_page():
-    st.title("📝 Create Account")
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        username = st.text_input("Choose username")
-        password = st.text_input("Choose password", type="password")
-        password2 = st.text_input("Confirm password", type="password")
-
-        if st.button("Register", use_container_width=True):
-            if password != password2:
-                st.error("Passwords do not match")
-            elif len(password) < 6:
-                st.error("Password should be at least 6 characters")
-            elif register_user(username, password):
-                st.success("Account created! Please login.")
-                st.session_state.page = "login"
-                st.rerun()
-            else:
-                st.error("Username already taken")
-
-        if st.button("← Back to Login"):
+    st.title("📝 Register")
+    username = st.text_input("Username")
+    pw1 = st.text_input("Password", type="password")
+    pw2 = st.text_input("Confirm password", type="password")
+    if st.button("Create Account"):
+        if pw1 != pw2:
+            st.error("Passwords don't match")
+        elif len(pw1) < 6:
+            st.error("Password too short")
+        elif register_user(username, pw1):
+            st.success("Account created. Please log in.")
             st.session_state.page = "login"
             st.rerun()
+        else:
+            st.error("Username taken")
+    if st.button("Back to Login"):
+        st.session_state.page = "login"
+        st.rerun()
 
-# ──────────────── MAIN APPLICATION ────────────────
+# ──────────────── MAIN APP ────────────────
 def main_app():
-    st.title("📊 DataGenie AI Dashboard")
-    if st.button("Logout", type="secondary"):
-        for key in list(st.session_state.keys()):
-            if key not in ["logged_in", "page"]:
-                del st.session_state[key]
+    st.title("🪄 DataGenie AI")
+
+    if st.button("Sign Out"):
+        for k in list(st.session_state.keys()):
+            if k not in ["logged_in", "page"]:
+                del st.session_state[k]
         st.session_state.logged_in = False
         st.session_state.page = "login"
         st.rerun()
 
-    # Sidebar
+    # ── SIDEBAR IMPROVEMENTS ──
     with st.sidebar:
-        st.header("📁 Upload Data")
-        uploaded_file = st.file_uploader("CSV or Excel", type=["csv", "xlsx"])
+        st.header("📂 Data Controls")
+        st.markdown("---")
 
-        st.subheader("Recent Uploads")
-        uploads = get_uploads(st.session_state.user_id)
-        for fname, ts in uploads[:5]:
-            st.caption(f"{fname} • {ts}")
+        uploaded = st.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
 
-    # Process upload
-    if uploaded_file is not None and st.session_state.df is None:
-        try:
-            if uploaded_file.name.endswith(".csv"):
-                st.session_state.df = pd.read_csv(uploaded_file)
-            else:
-                st.session_state.df = pd.read_excel(uploaded_file)
-            save_upload(st.session_state.user_id, uploaded_file.name)
-            st.success(f"Loaded: {uploaded_file.name}")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Could not read file: {e}")
+        if uploaded is not None and st.session_state.df is None:
+            try:
+                if uploaded.name.endswith(".csv"):
+                    st.session_state.df = pd.read_csv(uploaded)
+                else:
+                    st.session_state.df = pd.read_excel(uploaded)
+                st.session_state.df_filename = uploaded.name
+                save_upload(st.session_state.user_id, uploaded.name)
+                st.success(f"Loaded: **{uploaded.name}**")
+                st.rerun()
+            except Exception as e:
+                st.error(f"File read error: {e}")
+
+        if st.session_state.df is not None:
+            st.markdown("**Current Dataset**")
+            st.info(st.session_state.df_filename or "Untitled dataset")
+            st.metric("Rows", f"{len(st.session_state.df):,}")
+            st.metric("Columns", len(st.session_state.df.columns))
+
+            if st.button("🗑️ Clear Data & Start Over"):
+                st.session_state.df = None
+                st.session_state.df_filename = None
+                st.session_state.working_df = None
+                st.rerun()
+
+        st.markdown("---")
+        st.caption("Recent uploads")
+        for fn, ts in get_uploads(st.session_state.user_id)[:4]:
+            st.caption(f"• {fn}")
 
     if st.session_state.df is None:
-        st.info("Please upload a CSV or Excel file to start analyzing.")
+        st.info("Upload a file from the sidebar to begin ✨")
         return
 
     df = st.session_state.df
 
-    # TABS
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "🧼 Clean Data",
-        "👀 Preview",
-        "📈 Visualize",
-        "🔍 Insights",
-        "💬 Ask AI"
-    ])
+    tabs = st.tabs(["🧼 Clean", "📋 Preview", "📈 Charts", "🔍 Insights", "💬 Ask"])
 
-    with tab1:
+    with tabs[0]:
         st.session_state.df = advanced_cleaning_ui(df)
-        # Optionally keep old quick clean too:
-        # st.markdown("---")
-        # st.session_state.df = clean_data_ui(st.session_state.df)
 
-    with tab2:
-        st.subheader("Current Dataset")
-        st.dataframe(st.session_state.df, use_container_width=True)
+    with tabs[1]:
+        st.subheader("Current Data")
+        st.dataframe(st.session_state.df)
 
-    with tab3:
-        st.subheader("Create Chart")
+    with tabs[2]:
+        st.subheader("Visualizations")
+        x = st.selectbox("X axis", df.columns)
+        num_cols = df.select_dtypes(np.number).columns.tolist()
+        y = st.selectbox("Y axis", num_cols if num_cols else df.columns)
+        ctype = st.selectbox("Type", ["Bar", "Line", "Pie", "Histogram"])
 
-        if len(df.columns) < 2:
-            st.warning("Need at least 2 columns to plot.")
-        else:
-            x = st.selectbox("X-axis", df.columns)
-            y_candidates = df.select_dtypes(include=np.number).columns.tolist()
-            y = st.selectbox("Y-axis (numeric)", y_candidates if y_candidates else df.columns)
-            chart_type = st.selectbox("Chart type", ["Bar", "Line", "Area", "Pie", "Histogram"])
+        fig, ax = plt.subplots()
+        try:
+            if ctype == "Bar":     df.groupby(x)[y].sum().plot.bar(ax=ax)
+            elif ctype == "Line":  df.groupby(x)[y].sum().plot.line(ax=ax)
+            elif ctype == "Pie":   df.groupby(x)[y].sum().plot.pie(ax=ax, autopct="%.1f%%")
+            elif ctype == "Histogram": df[y].plot.hist(ax=ax, bins=30)
+            st.pyplot(fig)
 
-            fig, ax = plt.subplots(figsize=(10, 6))
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+            fig.savefig(tmp.name, dpi=120, bbox_inches="tight")
+            st.session_state.chart_path = tmp.name
+        except Exception as e:
+            st.error(f"Chart failed: {e}")
 
+    with tabs[3]:
+        st.subheader("Quick Insights")
+        nums = df.select_dtypes(np.number).columns[:6]
+        lines = []
+        for c in nums:
+            lines.append(f"**{c}** • total {df[c].sum():,.1f} • avg {df[c].mean():,.2f} • max {df[c].max():,.2f}")
+
+        text = "\n\n".join(lines)
+        st.markdown(text)
+
+        if nums.size > 0:
             try:
-                if chart_type == "Bar":
-                    df.groupby(x)[y].sum().plot.bar(ax=ax)
-                elif chart_type == "Line":
-                    df.groupby(x)[y].sum().plot.line(ax=ax)
-                elif chart_type == "Area":
-                    df.groupby(x)[y].sum().plot.area(ax=ax)
-                elif chart_type == "Pie":
-                    df.groupby(x)[y].sum().plot.pie(autopct="%1.1f%%", ax=ax)
-                    ax.set_ylabel("")
-                elif chart_type == "Histogram":
-                    df[y].plot.hist(ax=ax, bins=25)
+                X = np.arange(len(df)).reshape(-1,1)
+                y = df[nums[0]].fillna(0).values
+                m = LinearRegression().fit(X, y)
+                pred = m.predict([[len(df)]])[0]
+                st.success(f"Next {nums[0]} ≈ {pred:,.2f}")
+                text += f"\n\n**Prediction**: {pred:,.2f}"
+            except:
+                pass
 
-                plt.tight_layout()
-                st.pyplot(fig)
+        if st.button("Download PDF Report"):
+            pdf = create_report_pdf(text, st.session_state.get("chart_path"))
+            with open(pdf, "rb") as f:
+                st.download_button("Download Report", f, "report.pdf", "application/pdf")
 
-                # Save for PDF
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
-                    fig.savefig(tmp.name, dpi=120, bbox_inches="tight")
-                    st.session_state.chart_path = tmp.name
-
-            except Exception as e:
-                st.error(f"Chart could not be created: {e}")
-
-    with tab4:
-        st.subheader("Quick Business Insights")
-
-        num_cols = df.select_dtypes(include=np.number).columns
-        if len(num_cols) == 0:
-            st.info("No numeric columns found.")
-        else:
-            insights = []
-            for col in num_cols[:6]:  # limit to avoid huge report
-                insights.append(
-                    f"**{col}**  •  Total: {df[col].sum():,.1f}  •  Avg: {df[col].mean():,.2f}  •  Max: {df[col].max():,.2f}"
-                )
-
-            insight_text = "\n\n".join(insights)
-
-            if num_cols.size > 0:
-                pred_col = num_cols[0]
-                try:
-                    X = np.arange(len(df)).reshape(-1, 1)
-                    y = df[pred_col].fillna(0).values
-                    model = LinearRegression().fit(X, y)
-                    next_pred = model.predict([[len(df)]])[0]
-                    insight_text += f"\n\n**Prediction**: Next {pred_col} ≈ {next_pred:,.2f} (simple linear trend)"
-                except:
-                    pass
-
-            st.markdown(insight_text)
-
-            if st.button("Download PDF Report"):
-                pdf_path = create_report_pdf(insight_text, st.session_state.get("chart_path"))
-                with open(pdf_path, "rb") as f:
-                    st.download_button(
-                        label="Download Report PDF",
-                        data=f,
-                        file_name="DataGenie_Report.pdf",
-                        mime="application/pdf"
-                    )
-
-    with tab5:
-        st.subheader("Chat with your Data (basic)")
-        question = st.text_input("Ask something about the data…", key="chat_input")
-        if question:
-            with st.spinner("Thinking..."):
-                answer = nlp_chatbot(question, df)
-            st.markdown(f"**→** {answer}")
+    with tabs[4]:
+        st.subheader("Chat with Data")
+        q = st.text_input("Your question")
+        if q:
+            ans = nlp_chatbot(q, df)
+            st.markdown(f"**Answer:** {ans}")
 
 # ──────────────── ROUTER ────────────────
 if not st.session_state.logged_in:
