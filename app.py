@@ -473,10 +473,22 @@ def main_app():
         # prediction
         if important_cols:
             col = important_cols[0]
-            X = np.arange(len(df)).reshape(-1, 1)
-            y = df[col].values
-            model = LinearRegression().fit(X, y)
-            pred = model.predict([[len(df)]])[0]
+
+        # remove missing values
+        clean_df = df[[col]].dropna()
+
+        X = np.arange(len(clean_df)).reshape(-1, 1)
+        y = clean_df[col].values
+
+        if len(clean_df) > 1:
+           model = LinearRegression().fit(X, y)
+           pred = model.predict([[len(clean_df)]])[0]
+
+           st.success(f"Predicted next {col}: {pred:,.2f}")
+           insight_text += f"\nPredicted next {col}: {pred:,.2f}"
+        else:
+            st.warning("Not enough data for prediction")
+                pred = model.predict([[len(df)]])[0]
 
             st.success(f"Predicted next {col}: {pred:,.2f}")
             insight_text += f"\nPredicted next {col}: {pred:,.2f}"
