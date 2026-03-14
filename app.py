@@ -369,7 +369,7 @@ def main_app():
         st.info("Upload a file from the sidebar to begin ✨")
         return
 
-    df = st.session_state.df
+    df = st.session_state.get("df")
 
     tabs = st.tabs(["🧼 Clean", "📋 Preview", "📈 Charts", "🔍 Insights", "💬 Ask"])
 
