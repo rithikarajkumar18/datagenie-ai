@@ -373,17 +373,20 @@ def main_app():
         st.dataframe(st.session_state.df)
 
     with tabs[2]:
-        st.subheader("Visualizations")
-        x = st.selectbox("X axis", df.columns)
-        num_cols = df.select_dtypes(include=np.number).columns.tolist()
+    st.subheader("Visualizations")
 
-        if not num_cols:
-            st.warning("No numeric columns for chart.")
-        return
-           y = st.selectbox("Y axis", num_cols if num_cols else df.columns, key="y_axis_sel")
-           ctype = st.selectbox("Type", ["Bar", "Line", "Pie", "Histogram"])
-           fig, ax = plt.subplots()
-         try:
+    x = st.selectbox("X axis", df.columns)
+    num_cols = df.select_dtypes(include=np.number).columns.tolist()
+
+    if not num_cols:
+        st.warning("No numeric columns for chart.")
+    else:
+        y = st.selectbox("Y axis", num_cols, key="y_axis_sel")
+        ctype = st.selectbox("Type", ["Bar", "Line", "Pie", "Histogram"])
+
+        fig, ax = plt.subplots()
+
+        try:
             if ctype == "Bar":
                 df.groupby(x)[y].sum().plot.bar(ax=ax)
             elif ctype == "Line":
@@ -392,13 +395,15 @@ def main_app():
                 df.groupby(x)[y].sum().plot.pie(ax=ax, autopct="%.1f%%")
             elif ctype == "Histogram":
                 df[y].plot.hist(ax=ax, bins=30)
+
             st.pyplot(fig)
+
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
             fig.savefig(tmp.name, dpi=120, bbox_inches="tight")
             st.session_state.chart_path = tmp.name
+
         except Exception as e:
             st.error(f"Chart failed: {e}")
-
     with tabs[3]:
         st.subheader("Quick Insights")
         nums = df.select_dtypes(np.number).columns[:6]
