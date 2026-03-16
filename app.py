@@ -378,9 +378,9 @@ def main_app():
         num_cols = df.select_dtypes(include=np.number).columns.tolist()
 
     if not num_cols:
-       st.warning("No numeric columns for chart.")
-       return
-        y = st.selectbox("Y axis", num_cols if num_cols else df.columns, key="y_axis_sel")
+        st.warning("No numeric columns for chart.")
+        return
+      y = st.selectbox("Y axis", num_cols if num_cols else df.columns, key="y_axis_sel")
         ctype = st.selectbox("Type", ["Bar", "Line", "Pie", "Histogram"])
         fig, ax = plt.subplots()
         try:
