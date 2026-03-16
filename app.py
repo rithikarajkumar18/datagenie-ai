@@ -318,19 +318,21 @@ def main_app():
         st.header("📂 Data Controls")
         st.markdown("---")
         uploaded = st.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
-        if uploaded is not None and st.session_state.df is None:
+        if uploaded is not None:
             try:
                 if uploaded.name.endswith(".csv"):
-                    st.session_state.df = pd.read_csv(uploaded)
+                    df = pd.read_csv(uploaded)
                 else:
-                    st.session_state.df = pd.read_excel(uploaded)
+                    df = pd.read_excel(uploaded)
+                st.session_state.df = df
                 st.session_state.df_filename = uploaded.name
                 save_upload(st.session_state.user_id, uploaded.name)
-                st.success(f"Loaded: **{uploaded.name}**")
-                st.rerun()
-            except Exception as e:
-                st.error(f"File read error: {e}")
 
+         st.success(f"Loaded: {uploaded.name}")
+         st.rerun()
+
+    except Exception as e:
+        st.error(f"File read error: {e}")
         if st.session_state.df is not None:
             st.markdown("**Current Dataset**")
             st.info(st.session_state.df_filename or "Untitled dataset")
