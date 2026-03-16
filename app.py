@@ -325,18 +325,19 @@ def main_app():
         if uploaded is not None:
             try:
                 if uploaded.name.endswith(".csv"):
-                    df = pd.read_csv(uploaded)
+                   df = pd.read_csv(uploaded)
                 else:
-                    df = pd.read_excel(uploaded)
+                   df = pd.read_excel(uploaded)
+                    
                 st.session_state.df = df
                 st.session_state.df_filename = uploaded.name
                 save_upload(st.session_state.user_id, uploaded.name)
 
-         st.success(f"Loaded: {uploaded.name}")
-         st.rerun()
+                st.success(f"Loaded: {uploaded.name}")
+                st.rerun()
 
-    except Exception as e:
-        st.error(f"File read error: {e}")
+            except Exception as e:
+                st.error(f"File read error: {e}")
         if st.session_state.df is not None:
             st.markdown("**Current Dataset**")
             st.info(st.session_state.df_filename or "Untitled dataset")
