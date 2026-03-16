@@ -35,7 +35,7 @@ st.set_page_config(
 # ──────────────── DATABASE ────────────────
 @st.cache_resource
 def get_db_connection():
-    conn = sqlite3.connect("datagenie.db", check_same_thread=False)
+conn = sqlite3.connect(":memory:", check_same_thread=False)
     return conn
 
 conn = get_db_connection()
