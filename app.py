@@ -377,13 +377,13 @@ def main_app():
         x = st.selectbox("X axis", df.columns)
         num_cols = df.select_dtypes(include=np.number).columns.tolist()
 
-    if not num_cols:
-        st.warning("No numeric columns for chart.")
+        if not num_cols:
+            st.warning("No numeric columns for chart.")
         return
-      y = st.selectbox("Y axis", num_cols if num_cols else df.columns, key="y_axis_sel")
-        ctype = st.selectbox("Type", ["Bar", "Line", "Pie", "Histogram"])
-        fig, ax = plt.subplots()
-        try:
+           y = st.selectbox("Y axis", num_cols if num_cols else df.columns, key="y_axis_sel")
+           ctype = st.selectbox("Type", ["Bar", "Line", "Pie", "Histogram"])
+           fig, ax = plt.subplots()
+         try:
             if ctype == "Bar":
                 df.groupby(x)[y].sum().plot.bar(ax=ax)
             elif ctype == "Line":
