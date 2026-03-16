@@ -3,21 +3,18 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import sqlite3
+import os
+import tempfile
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from sklearn.linear_model import LinearRegression
 import nltk
-import os
-import tempfile
 
-# ──────────────── NLTK DATA SETUP (fixed version) ────────────────
+# ──────────────── NLTK DATA SETUP ────────────────
 nltk_data_dir = os.path.join(os.path.expanduser("~"), "nltk_data")
 os.makedirs(nltk_data_dir, exist_ok=True)
 nltk.data.path.append(nltk_data_dir)
-
 for pkg in ["punkt", "punkt_tab"]:
     try:
         nltk.data.find(f"tokenizers/{pkg}")
@@ -32,10 +29,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ──────────────── DATABASE ────────────────
+# ──────────────── DATABASE (fixed path) ────────────────
 @st.cache_resource
 def get_db_connection():
-conn = sqlite3.connect(":memory:", check_same_thread=False)
+    # Force database to live in the same directory as the script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    db_path = os.path.join(script_dir, "datagenie.db")
+    conn = sqlite3.connect(db_path, check_same_thread=False)
     return conn
 
 conn = get_db_connection()
@@ -48,7 +48,6 @@ cursor.execute("""
         password TEXT NOT NULL
     )
 """)
-
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS uploads (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -70,7 +69,6 @@ defaults = {
     "working_df": None,
     "chart_path": None
 }
-
 for key, value in defaults.items():
     if key not in st.session_state:
         st.session_state[key] = value
@@ -98,11 +96,14 @@ def get_uploads(user_id):
 
 # ──────────────── ADVANCED CLEANING ────────────────
 def advanced_cleaning_ui(original_df):
+    if original_df is None or original_df.empty:
+        st.error("No valid dataframe passed to cleaning function")
+        return original_df
+
     if st.session_state.working_df is None:
         st.session_state.working_df = original_df.copy()
 
     df = st.session_state.working_df
-
     st.subheader("⚡ Advanced Data Cleaning Studio")
     st.info("Preview changes → Apply when ready")
 
@@ -114,7 +115,6 @@ def advanced_cleaning_ui(original_df):
         custom_val = ""
         if method == "Custom":
             custom_val = st.text_input("Fill with", "")
-
         if st.button("Apply missing value fix"):
             if method == "Mean":
                 df = df.fillna(df.select_dtypes(include=np.number).mean())
@@ -135,9 +135,7 @@ def advanced_cleaning_ui(original_df):
             st.rerun()
 
     col_left, col_right = st.columns(2)
-
     with col_left:
-        # Duplicates
         with st.expander("2. Duplicates"):
             if st.button("Remove duplicate rows"):
                 df = df.drop_duplicates()
@@ -146,7 +144,6 @@ def advanced_cleaning_ui(original_df):
                 st.rerun()
 
     with col_right:
-        # Outliers
         with st.expander("3. Outliers"):
             mult = st.slider("IQR multiplier", 1.0, 3.0, 1.5, 0.1)
             if st.button("Remove outliers"):
@@ -159,29 +156,25 @@ def advanced_cleaning_ui(original_df):
                 st.success("Outliers removed")
                 st.rerun()
 
-    # Text cleaning
     with st.expander("4. Text Cleaning"):
         text_cols = df.select_dtypes("object").columns.tolist()
         sel_cols = st.multiselect("Clean these columns", text_cols, text_cols[:min(3, len(text_cols))])
-
         trim = st.checkbox("Trim spaces", True)
         lower = st.checkbox("Lowercase")
         title = st.checkbox("Title Case")
         no_special = st.checkbox("Remove special chars")
-
         if st.button("Apply text cleaning"):
             for col in sel_cols:
                 s = df[col].astype(str)
-                if trim:   s = s.str.strip()
-                if lower:  s = s.str.lower()
-                if title:  s = s.str.title()
+                if trim: s = s.str.strip()
+                if lower: s = s.str.lower()
+                if title: s = s.str.title()
                 if no_special: s = s.str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
                 df[col] = s
             st.session_state.working_df = df
             st.success("Text cleaned")
             st.rerun()
 
-    # Rename & Type
     colA, colB = st.columns(2)
     with colA:
         with st.expander("5. Rename Column"):
@@ -223,25 +216,20 @@ def advanced_cleaning_ui(original_df):
 
     st.subheader("Current Preview")
     st.dataframe(df.head(10))
-
     return df
 
 # ──────────────── SIMPLE CHATBOT ────────────────
 def nlp_chatbot(question, df):
     if df is None or df.empty:
         return "No data loaded yet."
-
     try:
         tokens = nltk.word_tokenize(question.lower())
     except Exception as e:
         return f"Tokenization failed: {str(e)}"
-
     nums = df.select_dtypes(include=np.number).columns.tolist()
     if not nums:
         return "No numeric columns."
-
     col = nums[0]
-
     if any(w in tokens for w in ["total", "sum"]):
         return f"**Total {col}**: {df[col].sum():,.2f}"
     if any(w in tokens for w in ["average", "mean", "avg"]):
@@ -265,18 +253,15 @@ def create_report_pdf(text, chart_path=None):
     doc = SimpleDocTemplate(path, pagesize=letter)
     styles = getSampleStyleSheet()
     elements = [Paragraph("DataGenie Report", styles["Heading1"]), Spacer(1, 12)]
-
     for line in text.split("\n"):
         if line.strip():
             elements.append(Paragraph(line, styles["Normal"]))
             elements.append(Spacer(1, 8))
-
     if chart_path and os.path.exists(chart_path):
         try:
             elements.append(Image(chart_path, width=500, height=350))
         except:
             pass
-
     doc.build(elements)
     return path
 
@@ -328,13 +313,11 @@ def main_app():
         st.session_state.page = "login"
         st.rerun()
 
-    # ── SIDEBAR IMPROVEMENTS ──
+    # ── SIDEBAR ──
     with st.sidebar:
         st.header("📂 Data Controls")
         st.markdown("---")
-
         uploaded = st.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
-
         if uploaded is not None and st.session_state.df is None:
             try:
                 if uploaded.name.endswith(".csv"):
@@ -353,7 +336,6 @@ def main_app():
             st.info(st.session_state.df_filename or "Untitled dataset")
             st.metric("Rows", f"{len(st.session_state.df):,}")
             st.metric("Columns", len(st.session_state.df.columns))
-
             if st.button("🗑️ Clear Data & Start Over"):
                 st.session_state.df = None
                 st.session_state.df_filename = None
@@ -365,16 +347,19 @@ def main_app():
         for fn, ts in get_uploads(st.session_state.user_id)[:4]:
             st.caption(f"• {fn}")
 
+    # ── EARLY RETURN IF NO DATA ──
     if st.session_state.df is None:
         st.info("Upload a file from the sidebar to begin ✨")
         return
 
-    df = st.session_state.get("df")
+    # From here df is guaranteed to exist
+    df = st.session_state.df
 
     tabs = st.tabs(["🧼 Clean", "📋 Preview", "📈 Charts", "🔍 Insights", "💬 Ask"])
 
     with tabs[0]:
-        st.session_state.df = advanced_cleaning_ui(df)
+        updated_df = advanced_cleaning_ui(df)
+        # Only update main df when user explicitly applies changes (already handled inside function)
 
     with tabs[1]:
         st.subheader("Current Data")
@@ -384,17 +369,19 @@ def main_app():
         st.subheader("Visualizations")
         x = st.selectbox("X axis", df.columns)
         num_cols = df.select_dtypes(np.number).columns.tolist()
-        y = st.selectbox("Y axis", num_cols if num_cols else df.columns)
+        y = st.selectbox("Y axis", num_cols if num_cols else df.columns, key="y_axis_sel")
         ctype = st.selectbox("Type", ["Bar", "Line", "Pie", "Histogram"])
-
         fig, ax = plt.subplots()
         try:
-            if ctype == "Bar":     df.groupby(x)[y].sum().plot.bar(ax=ax)
-            elif ctype == "Line":  df.groupby(x)[y].sum().plot.line(ax=ax)
-            elif ctype == "Pie":   df.groupby(x)[y].sum().plot.pie(ax=ax, autopct="%.1f%%")
-            elif ctype == "Histogram": df[y].plot.hist(ax=ax, bins=30)
+            if ctype == "Bar":
+                df.groupby(x)[y].sum().plot.bar(ax=ax)
+            elif ctype == "Line":
+                df.groupby(x)[y].sum().plot.line(ax=ax)
+            elif ctype == "Pie":
+                df.groupby(x)[y].sum().plot.pie(ax=ax, autopct="%.1f%%")
+            elif ctype == "Histogram":
+                df[y].plot.hist(ax=ax, bins=30)
             st.pyplot(fig)
-
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
             fig.savefig(tmp.name, dpi=120, bbox_inches="tight")
             st.session_state.chart_path = tmp.name
@@ -407,11 +394,10 @@ def main_app():
         lines = []
         for c in nums:
             lines.append(f"**{c}** • total {df[c].sum():,.1f} • avg {df[c].mean():,.2f} • max {df[c].max():,.2f}")
-
         text = "\n\n".join(lines)
         st.markdown(text)
 
-        if nums.size > 0:
+        if len(nums) > 0:
             try:
                 X = np.arange(len(df)).reshape(-1,1)
                 y = df[nums[0]].fillna(0).values
@@ -423,9 +409,14 @@ def main_app():
                 pass
 
         if st.button("Download PDF Report"):
-            pdf = create_report_pdf(text, st.session_state.get("chart_path"))
-            with open(pdf, "rb") as f:
-                st.download_button("Download Report", f, "report.pdf", "application/pdf")
+            pdf_path = create_report_pdf(text, st.session_state.get("chart_path"))
+            with open(pdf_path, "rb") as f:
+                st.download_button(
+                    label="Download Report",
+                    data=f,
+                    file_name="datagenie_report.pdf",
+                    mime="application/pdf"
+                )
 
     with tabs[4]:
         st.subheader("Chat with Data")
