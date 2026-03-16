@@ -230,6 +230,10 @@ def nlp_chatbot(question, df):
     if not nums:
         return "No numeric columns."
     col = nums[0]
+    for c in nums:
+        if c.lower() in question.lower():
+           col = c
+           break
     if any(w in tokens for w in ["total", "sum"]):
         return f"**Total {col}**: {df[col].sum():,.2f}"
     if any(w in tokens for w in ["average", "mean", "avg"]):
@@ -370,7 +374,11 @@ def main_app():
     with tabs[2]:
         st.subheader("Visualizations")
         x = st.selectbox("X axis", df.columns)
-        num_cols = df.select_dtypes(np.number).columns.tolist()
+        num_cols = df.select_dtypes(include=np.number).columns.tolist()
+
+    if not num_cols:
+       st.warning("No numeric columns for chart.")
+       return
         y = st.selectbox("Y axis", num_cols if num_cols else df.columns, key="y_axis_sel")
         ctype = st.selectbox("Type", ["Bar", "Line", "Pie", "Histogram"])
         fig, ax = plt.subplots()
