@@ -324,17 +324,18 @@ def main_app():
         uploaded = st.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
         if uploaded is not None:
             try:
-                if uploaded.name.endswith(".csv"):
-                   df = pd.read_csv(uploaded)
-                else:
-                   df = pd.read_excel(uploaded)
+                if st.session_state.df is None or uploaded.name != st.session_state.df_filename:
+                
+                    if uploaded.name.endswith(".csv"):
+                       df = pd.read_csv(uploaded)
+                    else:
+                       df = pd.read_excel(uploaded)
                     
-                st.session_state.df = df
-                st.session_state.df_filename = uploaded.name
-                save_upload(st.session_state.user_id, uploaded.name)
+                    st.session_state.df = df
+                    st.session_state.df_filename = uploaded.name
+                    save_upload(st.session_state.user_id, uploaded.name)
 
-                st.success(f"Loaded: {uploaded.name}")
-                st.rerun()
+                    st.success(f"Loaded: {uploaded.name}")
 
             except Exception as e:
                 st.error(f"File read error: {e}")
@@ -371,6 +372,7 @@ def main_app():
     with tabs[1]:
         st.subheader("Current Data")
         st.dataframe(st.session_state.df)
+        st.write("Shape:", st.session_state.df.shape)
 
     with tabs[2]:
         st.subheader("Visualizations")
